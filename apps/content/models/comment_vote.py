@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
-
 from django.db import models
 
 from core.models import TimestampedModel
-
 
 class CommentVote(TimestampedModel):
     """A user vote on a comment with +1 or -1 value."""
@@ -32,3 +29,9 @@ class CommentVote(TimestampedModel):
             models.Index(fields=["user"], name="content_vote_user_idx"),
         ]
         unique_together = (("comment", "user"),)
+
+    def __str__(self) -> str:
+        """Return a descriptive vote representation."""
+
+        label = "Upvote" if self.value == self.UPVOTE else "Downvote"
+        return f"{label} by user {self.user_id} on comment {self.comment_id}"

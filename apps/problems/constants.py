@@ -1,8 +1,6 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from django.db import models
-
 
 class ProblemDifficulty(models.TextChoices):
     """Difficulty levels for competitive programming problems."""
@@ -13,7 +11,6 @@ class ProblemDifficulty(models.TextChoices):
     HARD = "40", "Hard"
     INSANE = "50", "Insane"
 
-
 class ProblemVisibility(models.TextChoices):
     """Visibility options for problems."""
 
@@ -21,7 +18,6 @@ class ProblemVisibility(models.TextChoices):
     UNLISTED = "unlisted", "Unlisted"
     PUBLIC = "public", "Public"
     CONTEST_ONLY = "contest_only", "Contest Only"
-
 
 class SolutionVerdict(models.TextChoices):
     """Editorial solution verdict classifications."""
@@ -31,7 +27,6 @@ class SolutionVerdict(models.TextChoices):
     PARTIAL = "partial", "Partial"
     PRESENTATION_ERROR = "presentation_error", "Presentation Error"
 
-
 class ProblemType(models.TextChoices):
     """Problem interaction styles supported by the judge."""
 
@@ -40,7 +35,6 @@ class ProblemType(models.TextChoices):
     COMMUNICATION = "communication", "Communication"
     OUTPUT_ONLY = "output_only", "Output Only"
     MULTI_STEP = "multi_step", "Multi Step"
-
 
 class CheckerType(models.TextChoices):
     """Built-in checker strategies for test data validation."""

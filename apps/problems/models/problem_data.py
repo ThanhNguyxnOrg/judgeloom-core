@@ -1,11 +1,9 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from django.db import models
 
 from apps.problems.constants import CheckerType
 from core.models import TimestampedModel
-
 
 class ProblemTestData(TimestampedModel):
     """Stores testcase artifacts and judging configuration for a problem."""

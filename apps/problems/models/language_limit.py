@@ -1,11 +1,9 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from django.db import models
 
 from core.models import TimestampedModel
 from core.validators import validate_memory_limit, validate_time_limit
-
 
 class LanguageLimit(TimestampedModel):
     """Per-language execution constraints for a specific problem."""

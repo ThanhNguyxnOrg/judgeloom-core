@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
-
 from django.db import models
 
 from core.models import OrderedModel
-
 
 class NavigationItem(OrderedModel):
     """Navigation item that supports hierarchical menus."""
@@ -32,3 +29,8 @@ class NavigationItem(OrderedModel):
             models.Index(fields=["key"], name="content_nav_key_idx"),
             models.Index(fields=["parent", "order"], name="content_nav_parent_order_idx"),
         ]
+
+    def __str__(self) -> str:
+        """Return the navigation item label."""
+
+        return self.label

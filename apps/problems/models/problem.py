@@ -1,4 +1,3 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false, reportAssignmentType=false, reportArgumentType=false, reportAttributeAccessIssue=false
 from __future__ import annotations
 
 from typing import Any
@@ -9,7 +8,6 @@ from django.db import models
 from apps.problems.constants import ProblemDifficulty, ProblemType, ProblemVisibility
 from core.models import SluggedModel
 from core.validators import validate_memory_limit, validate_time_limit
-
 
 class Problem(SluggedModel):
     """Core problem entity used by the JudgeLoom platform."""

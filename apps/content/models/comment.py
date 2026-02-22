@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
-
 from django.db import models
 
 from apps.content.constants import CommentVisibility
 from core.models import TimestampedModel
-
 
 class Comment(TimestampedModel):
     """Threaded comment using a materialized path."""
@@ -66,3 +63,8 @@ class Comment(TimestampedModel):
             models.Index(fields=["post", "path"], name="content_cmt_post_path_idx"),
             models.Index(fields=["author"], name="content_cmt_author_idx"),
         ]
+
+    def __str__(self) -> str:
+        """Return a compact comment descriptor."""
+
+        return f"Comment #{self.pk} by {self.author_id} on {self.post_id}"

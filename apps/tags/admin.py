@@ -1,10 +1,8 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from django.contrib import admin
 
 from apps.tags.models import Tag, TagGroup
-
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
@@ -12,7 +10,6 @@ class TagAdmin(admin.ModelAdmin):
 
     list_display = ("name", "code")
     search_fields = ("name", "code")
-
 
 @admin.register(TagGroup)
 class TagGroupAdmin(admin.ModelAdmin):

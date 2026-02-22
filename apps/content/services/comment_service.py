@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false
-
 from typing import Any
 
 from django.db import transaction
@@ -10,7 +8,6 @@ from django.db.models import F, QuerySet
 from apps.content.constants import CommentVisibility
 from apps.content.models import BlogPost, Comment, CommentVote
 from core.exceptions import ValidationError
-
 
 class CommentService:
     """Business operations for threaded comments."""

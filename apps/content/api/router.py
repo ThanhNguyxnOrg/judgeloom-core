@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false
-
 from typing import Any
 
 from django.db.models import QuerySet
@@ -25,7 +23,6 @@ from core.exceptions import PermissionDeniedError
 
 router = Router(tags=["content"])
 
-
 def _require_authenticated(user: Any) -> None:
     """Ensure current user is authenticated.
 
@@ -38,7 +35,6 @@ def _require_authenticated(user: Any) -> None:
 
     if not getattr(user, "is_authenticated", False):
         raise PermissionDeniedError("Authentication required.")
-
 
 def _require_staff(user: Any) -> None:
     """Ensure current user is a staff member.
@@ -54,7 +50,6 @@ def _require_staff(user: Any) -> None:
     if not getattr(user, "is_staff", False):
         raise PermissionDeniedError("Staff access required.")
 
-
 def _post_to_list_schema(post: BlogPost) -> PostListOut:
     """Convert a BlogPost model into PostListOut schema."""
 
@@ -67,7 +62,6 @@ def _post_to_list_schema(post: BlogPost) -> PostListOut:
         publish_date=post.publish_date,
         author_id=post.author_id,
     )
-
 
 def _post_to_detail_schema(post: BlogPost) -> PostDetailOut:
     """Convert a BlogPost model into PostDetailOut schema."""
@@ -86,7 +80,6 @@ def _post_to_detail_schema(post: BlogPost) -> PostDetailOut:
         og_image=post.og_image or None,
     )
 
-
 @router.get("/posts", response=list[PostListOut])
 def list_posts(request: Any, page: int = 1, page_size: int = 20) -> list[PostListOut]:
     """List published posts with simple pagination."""
@@ -101,7 +94,6 @@ def list_posts(request: Any, page: int = 1, page_size: int = 20) -> list[PostLis
     offset = (page - 1) * page_size
     posts = queryset[offset : offset + page_size]
     return [_post_to_list_schema(post) for post in posts]
-
 
 @router.post("/posts", response=PostDetailOut)
 def create_post(request: Any, payload: PostCreateIn) -> PostDetailOut:
@@ -128,7 +120,6 @@ def create_post(request: Any, payload: PostCreateIn) -> PostDetailOut:
         post.organizations.set(payload.organization_ids)
     return _post_to_detail_schema(post)
 
-
 @router.get("/posts/{slug}", response=PostDetailOut)
 def get_post_detail(request: Any, slug: str) -> PostDetailOut:
     """Return post detail by slug."""
@@ -138,7 +129,6 @@ def get_post_detail(request: Any, slug: str) -> PostDetailOut:
     if post.id not in set(visible_ids):
         raise PermissionDeniedError("Post is not visible to this user.")
     return _post_to_detail_schema(post)
-
 
 @router.patch("/posts/{slug}", response=PostDetailOut)
 def update_post(request: Any, slug: str, payload: PostUpdateIn) -> PostDetailOut:
@@ -159,7 +149,6 @@ def update_post(request: Any, slug: str, payload: PostUpdateIn) -> PostDetailOut
 
     return _post_to_detail_schema(post)
 
-
 @router.post("/posts/{slug}/publish", response=PostDetailOut)
 def publish_post(request: Any, slug: str) -> PostDetailOut:
     """Publish a draft post."""
@@ -173,7 +162,6 @@ def publish_post(request: Any, slug: str) -> PostDetailOut:
     post = PostService.publish_post(post)
     return _post_to_detail_schema(post)
 
-
 @router.get("/posts/{slug}/comments", response=list[CommentOut])
 def get_post_comments(request: Any, slug: str) -> list[CommentOut]:
     """Return threaded comments for a post."""
@@ -182,7 +170,6 @@ def get_post_comments(request: Any, slug: str) -> list[CommentOut]:
     post = PostService.get_post_by_slug(slug)
     tree = CommentService.get_comment_tree(post)
     return [CommentOut(**node) for node in tree]
-
 
 @router.post("/posts/{slug}/comments", response=CommentOut)
 def add_comment(request: Any, slug: str, payload: CommentIn) -> CommentOut:
@@ -214,7 +201,6 @@ def add_comment(request: Any, slug: str, payload: CommentIn) -> CommentOut:
         children=[],
     )
 
-
 @router.patch("/comments/{comment_id}", response=CommentOut)
 def edit_comment(request: Any, comment_id: int, payload: CommentIn) -> CommentOut:
     """Edit an existing comment. Owner only."""
@@ -239,7 +225,6 @@ def edit_comment(request: Any, comment_id: int, payload: CommentIn) -> CommentOu
         updated_at=updated.updated_at,
         children=[],
     )
-
 
 @router.delete("/comments/{comment_id}", response=CommentOut)
 def delete_comment(request: Any, comment_id: int) -> CommentOut:
@@ -266,7 +251,6 @@ def delete_comment(request: Any, comment_id: int) -> CommentOut:
         children=[],
     )
 
-
 @router.post("/comments/{comment_id}/vote")
 def vote_comment(request: Any, comment_id: int, payload: CommentVoteIn) -> dict[str, str]:
     """Vote on a comment with +1 or -1."""
@@ -275,7 +259,6 @@ def vote_comment(request: Any, comment_id: int, payload: CommentVoteIn) -> dict[
     comment = get_object_or_404(Comment, id=comment_id)
     CommentService.vote_comment(comment, request.user, payload.value)
     return {"detail": "Vote recorded."}
-
 
 @router.get("/navigation", response=list[NavigationOut])
 def get_navigation(request: Any) -> list[NavigationOut]:

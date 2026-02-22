@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
-
 from django.db import models
 from django.utils import timezone
 
 from apps.content.constants import PostVisibility
 from core.models import SluggedModel
-
 
 class BlogPost(SluggedModel):
     """Markdown blog post published on the platform."""
@@ -72,3 +69,8 @@ class BlogPost(SluggedModel):
             models.Index(fields=["publish_date"], name="content_post_pub_idx"),
             models.Index(fields=["is_pinned"], name="content_post_pin_idx"),
         ]
+
+    def __str__(self) -> str:
+        """Return the post title as the string representation."""
+
+        return self.title

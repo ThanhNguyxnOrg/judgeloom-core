@@ -1,4 +1,3 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from django.db.models import Count, QuerySet
@@ -8,7 +7,6 @@ from apps.problems.models import Problem
 from apps.problems.services import ProblemService
 from apps.tags.models import Tag
 from core.exceptions import NotFoundError
-
 
 class TagService:
     """Service layer for tag creation and tagging workflows."""

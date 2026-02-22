@@ -1,8 +1,6 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from django.apps import AppConfig
-
 
 class TagsConfig(AppConfig):
     """Application configuration for the tags app."""

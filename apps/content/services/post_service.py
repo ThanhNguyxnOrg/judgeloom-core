@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false
-
 from typing import Any
 
 from django.db.models import Q, QuerySet
@@ -10,7 +8,6 @@ from django.utils import timezone
 from apps.content.constants import PostVisibility
 from apps.content.models import BlogPost
 from core.exceptions import NotFoundError
-
 
 class PostService:
     """Business operations for blog posts."""

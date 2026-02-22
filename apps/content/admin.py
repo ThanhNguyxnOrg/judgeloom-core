@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-# pyright: reportMissingImports=false
-
 from django.contrib import admin
 
 from apps.content.models import BlogPost, Comment, NavigationItem
-
 
 @admin.register(BlogPost)
 class BlogPostAdmin(admin.ModelAdmin):
@@ -17,7 +14,6 @@ class BlogPostAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("title",)}
     filter_horizontal = ("organizations",)
 
-
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
     """Admin configuration for comments."""
@@ -26,7 +22,6 @@ class CommentAdmin(admin.ModelAdmin):
     list_filter = ("visibility",)
     search_fields = ("body", "path")
     raw_id_fields = ("post", "author", "parent")
-
 
 @admin.register(NavigationItem)
 class NavigationItemAdmin(admin.ModelAdmin):

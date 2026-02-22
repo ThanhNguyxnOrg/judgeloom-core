@@ -1,4 +1,3 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from typing import Any
@@ -7,7 +6,6 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.problems.models import Problem, ProblemTestCase, ProblemTestData
-
 
 class TestDataService:
     """Service methods for managing problem test data."""

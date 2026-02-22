@@ -1,4 +1,3 @@
-# pyright: reportMissingImports=false, reportIncompatibleVariableOverride=false
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +22,6 @@ from core.permissions import JudgeLoomAuth, is_authenticated
 
 router = Router(tags=["problems"])
 
-
 def _serialize_problem_list(problem: Problem) -> ProblemListOut:
     """Serialize a problem instance for list responses."""
 
@@ -36,7 +34,6 @@ def _serialize_problem_list(problem: Problem) -> ProblemListOut:
         visibility=problem.visibility,
         is_public=problem.is_public,
     )
-
 
 def _serialize_problem_detail(problem: Problem) -> ProblemDetailOut:
     """Serialize a problem instance for detail responses."""
@@ -58,7 +55,6 @@ def _serialize_problem_detail(problem: Problem) -> ProblemDetailOut:
         types=problem.types,
     )
 
-
 def _serialize_solution(solution: Solution) -> SolutionOut:
     """Serialize a solution object for API responses."""
 
@@ -71,7 +67,6 @@ def _serialize_solution(solution: Solution) -> SolutionOut:
         verdict=solution.verdict,
         created_at=solution.created_at,
     )
-
 
 @router.get("/", auth=JudgeLoomAuth())
 def list_problems(
@@ -95,7 +90,6 @@ def list_problems(
     paginated_payload["items"] = [_serialize_problem_list(problem) for problem in paginated_payload["items"]]
     return paginated_payload
 
-
 @router.post("/", response=ProblemDetailOut, auth=JudgeLoomAuth())
 def create_problem(request: Any, payload: ProblemCreateIn) -> ProblemDetailOut:
     """Create a problem as an authenticated user."""
@@ -107,7 +101,6 @@ def create_problem(request: Any, payload: ProblemCreateIn) -> ProblemDetailOut:
     problem = ProblemService.create_problem(payload.code, payload.name, request.user, **create_kwargs)
     return _serialize_problem_detail(problem)
 
-
 @router.get("/{code}", response=ProblemDetailOut, auth=JudgeLoomAuth())
 def get_problem_detail(request: Any, code: str) -> ProblemDetailOut:
     """Get problem details by problem code."""
@@ -116,7 +109,6 @@ def get_problem_detail(request: Any, code: str) -> ProblemDetailOut:
     if not ProblemService.can_see_problem(request.user, problem):
         raise PermissionDeniedError("You do not have access to this problem.")
     return _serialize_problem_detail(problem)
-
 
 @router.patch("/{code}", response=ProblemDetailOut, auth=JudgeLoomAuth())
 def update_problem(request: Any, code: str, payload: ProblemUpdateIn) -> ProblemDetailOut:
@@ -131,7 +123,6 @@ def update_problem(request: Any, code: str, payload: ProblemUpdateIn) -> Problem
         problem = ProblemService.update_problem(problem, **update_kwargs)
     return _serialize_problem_detail(problem)
 
-
 @router.get("/{code}/statistics", response=ProblemStatsOut, auth=JudgeLoomAuth())
 def get_problem_statistics(request: Any, code: str) -> ProblemStatsOut:
     """Return aggregate statistics for a problem."""
@@ -140,7 +131,6 @@ def get_problem_statistics(request: Any, code: str) -> ProblemStatsOut:
     if not ProblemService.can_see_problem(request.user, problem):
         raise PermissionDeniedError("You do not have access to this problem.")
     return ProblemStatsOut(**ProblemService.get_problem_statistics(problem))
-
 
 @router.get("/{code}/solutions", response=list[SolutionOut], auth=JudgeLoomAuth())
 def list_solutions(request: Any, code: str) -> list[SolutionOut]:
@@ -155,7 +145,6 @@ def list_solutions(request: Any, code: str) -> list[SolutionOut]:
         solutions = solutions.filter(is_public=True)
 
     return [_serialize_solution(solution) for solution in solutions]
-
 
 @router.post("/{code}/solutions", response=SolutionOut, auth=JudgeLoomAuth())
 def create_solution(request: Any, code: str, payload: SolutionIn) -> SolutionOut:

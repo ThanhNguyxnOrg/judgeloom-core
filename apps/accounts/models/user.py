@@ -84,6 +84,11 @@ class User(AbstractUser, TimestampedModel):
             models.Index(fields=["username"], name="accounts_user_username_idx"),
         ]
 
+    def __str__(self) -> str:
+        """Return the username as the string representation."""
+
+        return self.username
+
     @property
     def display_name(self) -> str:
         """Return the best available display name for the user.
