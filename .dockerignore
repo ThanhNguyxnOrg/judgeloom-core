@@ -1,0 +1,84 @@
+# =============================================================================
+# JudgeLoom — .dockerignore
+# =============================================================================
+# Files and directories excluded from the Docker build context.
+# Keeping the context small speeds up builds and reduces image size.
+# =============================================================================
+
+# ─── Version control ─────────────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ─── Python bytecode & caches ────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ─── Virtual environments ────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Test & coverage artefacts ───────────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# ─── Type checker caches ─────────────────────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+
+# ─── Linter / formatter caches ───────────────────────────────────────────────
+.ruff_cache/
+
+# ─── Environment files (never bake secrets into the image) ───────────────────
+.env
+.env.*
+!.env.example
+
+# ─── IDE & editor artefacts ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Node (frontend tooling) ─────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ─── Django runtime artefacts (generated at runtime, not build time) ─────────
+static_collected/
+media/
+
+# ─── Docker files (not needed inside the image) ──────────────────────────────
+docker/
+docker-compose*.yml
+.dockerignore
+
+# ─── Documentation ───────────────────────────────────────────────────────────
+docs/
+*.md
+!README.md
+
+# ─── CI / tooling configs that don't affect runtime ─────────────────────────
+.pre-commit-config.yaml
+.github/
+Makefile
+
+# ─── Logs ────────────────────────────────────────────────────────────────────
+*.log
+logs/

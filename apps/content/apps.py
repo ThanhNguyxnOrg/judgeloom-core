@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.apps import AppConfig
 
+
 class ContentConfig(AppConfig):
     """Application configuration for the content app."""
 
@@ -9,3 +10,7 @@ class ContentConfig(AppConfig):
     name = "apps.content"
     label = "content"
     verbose_name = "Content"
+
+    def ready(self) -> None:
+        """Import signal handlers when the app registry is ready."""
+        import apps.content.signals  # noqa: F401

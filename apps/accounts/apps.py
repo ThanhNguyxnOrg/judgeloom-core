@@ -10,3 +10,7 @@ class AccountsConfig(AppConfig):
     name = "apps.accounts"
     label = "accounts"
     verbose_name = "Accounts"
+
+    def ready(self) -> None:
+        """Import signal handlers when the app registry is ready."""
+        import apps.accounts.signals  # noqa: F401

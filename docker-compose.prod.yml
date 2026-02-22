@@ -1,0 +1,140 @@
+# =============================================================================
+# JudgeLoom — Production Docker Compose Overrides
+# =============================================================================
+# Apply on top of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Key changes versus development:
+#   • Uses the multi-stage production Dockerfile (no source volume mount)
+#   • Gunicorn replaces Django dev server
+#   • Static files served from a shared named volume (mount behind nginx)
+#   • Restart policy: always
+#   • Resource limits defined
+#   • Flower protected by basic auth
+# =============================================================================
+
+services:
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+    restart: always
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    volumes:
+      # Do NOT mount source code in production — image is immutable
+      - static_files:/var/judgeloom/static
+      - media_files:/var/judgeloom/media
+    # Override the dev command — gunicorn is set as CMD in the Dockerfile,
+    # but we make it explicit here for clarity.
+    command:
+      - gunicorn
+      - config.wsgi:application
+      - --bind=0.0.0.0:8000
+      - --workers=4
+      - --worker-class=gthread
+      - --threads=2
+      - --timeout=60
+      - --keep-alive=5
+      - --log-level=info
+      - --access-logfile=-
+      - --error-logfile=-
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+    restart: always
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    volumes: []
+    command: celery -A config worker --loglevel=info --concurrency=4
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+    restart: always
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    volumes: []
+    command: celery -A config beat --loglevel=info
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  flower:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: runtime
+    restart: always
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    # Flower basic auth credentials should come from env; set FLOWER_BASIC_AUTH
+    # in your .env or secret manager as "user:password".
+    command: >
+      celery -A config flower
+      --port=5555
+      --basic_auth=${FLOWER_BASIC_AUTH}
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  postgres:
+    restart: always
+    environment:
+      # Override dev credentials — real credentials must be injected via
+      # secrets manager or the .env file on the production host.
+      POSTGRES_DB: ${POSTGRES_DB:-judgeloom}
+      POSTGRES_USER: ${POSTGRES_USER:-judgeloom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+# ─── Additional production volumes ─────────────────────────────────────────
+
+volumes:
+  static_files:
+    driver: local
+  media_files:
+    driver: local

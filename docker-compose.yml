@@ -1,0 +1,144 @@
+# =============================================================================
+# JudgeLoom — Development Docker Compose
+# =============================================================================
+# Full local development stack:
+#   web           — Django dev server (auto-reload, source mounted)
+#   celery_worker — Celery task worker
+#   celery_beat   — Periodic task scheduler
+#   redis         — Broker + cache + channel layer
+#   postgres      — Primary database
+#   flower        — Celery task monitor UI
+# =============================================================================
+
+services:
+
+  # ─── Infrastructure ──────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: judgeloom
+      POSTGRES_USER: judgeloom
+      POSTGRES_PASSWORD: judgeloom
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judgeloom -d judgeloom"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Application ─────────────────────────────────────────────────────────
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CHANNEL_LAYERS_URL: redis://redis:6379/2
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source so edits are reflected immediately without rebuilding
+      - .:/app
+      # Persist media uploads across restarts
+      - media_files:/var/judgeloom/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python manage.py runserver 0.0.0.0:8000
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CHANNEL_LAYERS_URL: redis://redis:6379/2
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A config worker --loglevel=info --concurrency=4
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CHANNEL_LAYERS_URL: redis://redis:6379/2
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # --scheduler is already configured via CELERY_BEAT_SCHEDULER in Django settings
+    command: celery -A config beat --loglevel=info
+
+  flower:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      CELERY_BROKER_URL: redis://redis:6379/1
+    ports:
+      - "5555:5555"
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A config flower --port=5555 --broker=redis://redis:6379/1
+
+# ─── Volumes ───────────────────────────────────────────────────────────────
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  media_files:
+    driver: local

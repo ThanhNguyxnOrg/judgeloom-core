@@ -10,3 +10,7 @@ class OrganizationsConfig(AppConfig):
     name = "apps.organizations"
     label = "organizations"
     verbose_name = "Organizations"
+
+    def ready(self) -> None:
+        """Import signal handlers when the app registry is ready."""
+        import apps.organizations.signals  # noqa: F401

@@ -10,3 +10,7 @@ class SubmissionsConfig(AppConfig):
     name = "apps.submissions"
     label = "submissions"
     verbose_name = "Submissions"
+
+    def ready(self) -> None:
+        """Import signal handlers when the app registry is ready."""
+        import apps.submissions.signals  # noqa: F401

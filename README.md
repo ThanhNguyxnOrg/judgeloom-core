@@ -118,6 +118,3 @@ ruff format .
 
 ## License
 This project is licensed under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html).
-
-## Acknowledgments
-- Inspired by the [DMOJ](https://github.com/dmoj/online-judge) open-source judge platform.

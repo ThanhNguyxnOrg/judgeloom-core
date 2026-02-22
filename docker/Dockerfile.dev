@@ -1,0 +1,50 @@
+# =============================================================================
+# JudgeLoom — Development Dockerfile
+# =============================================================================
+# Single-stage, optimised for fast iteration:
+#   • Development requirements (debugger, linter, type-checker, test runner)
+#   • Source code is mounted as a volume — no COPY needed
+#   • Django dev server with auto-reload on file changes
+# =============================================================================
+
+FROM python:3.12-slim
+
+LABEL org.opencontainers.image.title="JudgeLoom Core (dev)" \
+      org.opencontainers.image.description="JudgeLoom Django application (development)"
+
+# System deps for C extensions and psycopg
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    libjpeg62-turbo-dev \
+    zlib1g-dev \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip/wheel
+RUN pip install --no-cache-dir --upgrade pip wheel
+
+WORKDIR /app
+
+# Copy requirements first so this layer is re-used when only source code changes
+COPY requirements/base.txt requirements/base.txt
+COPY requirements/development.txt requirements/development.txt
+COPY requirements/testing.txt requirements/testing.txt
+
+# Install all development requirements (includes base + testing)
+RUN pip install --no-cache-dir -r requirements/development.txt
+
+# Source code is mounted at /app via docker-compose volume — not copied here.
+# This means edits on the host are reflected immediately in the container.
+
+ENV DJANGO_SETTINGS_MODULE=config.settings.development \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+EXPOSE 8000
+
+# Django's built-in dev server with auto-reload
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

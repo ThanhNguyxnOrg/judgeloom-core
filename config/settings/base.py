@@ -97,6 +97,7 @@ MIDDLEWARE: list[str] = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "core.middleware.TimezoneMiddleware",
     "core.middleware.RequestMetricsMiddleware",
+    "core.middleware.RateLimitMiddleware",
 ]
 
 
@@ -286,6 +287,7 @@ JUDGELOOM = {
     "DEFAULT_MEMORY_LIMIT": 262144,  # KB (256 MB)
     "MAX_SUBMISSION_SIZE": 65536,  # bytes (64 KB source)
     "SUBMISSION_RATE_LIMIT": "10/m",  # per user
+    "API_RATE_LIMIT": "100/m",  # per IP for /api/ endpoints
     # Contest defaults
     "DEFAULT_CONTEST_DURATION": 18000,  # seconds (5 hours)
     "RATING_FLOOR": 0,
