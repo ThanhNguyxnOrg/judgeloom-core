@@ -183,3 +183,26 @@ class TestTestDataService:
 
         with pytest.raises(ValidationError, match="exceeds maximum allowed test cases"):
             TestDataService.upload_test_data(problem, archive_file)
+
+    def test_upload_test_data_rejects_duplicate_case_stems(self, problem):
+        """Reject archives containing duplicate case stems across directories."""
+        import zipfile
+        from io import BytesIO
+
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        from apps.problems.services.test_data_service import TestDataService
+        from core.exceptions import ValidationError
+
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w") as zf:
+            zf.writestr("group_a/case1.in", b"1")
+            zf.writestr("group_a/case1.out", b"1")
+            zf.writestr("group_b/case1.in", b"2")
+            zf.writestr("group_b/case1.out", b"2")
+
+        zip_buffer.seek(0)
+        archive_file = SimpleUploadedFile("tests.zip", zip_buffer.read(), content_type="application/zip")
+
+        with pytest.raises(ValidationError, match="Duplicate testcase stem"):
+            TestDataService.upload_test_data(problem, archive_file)

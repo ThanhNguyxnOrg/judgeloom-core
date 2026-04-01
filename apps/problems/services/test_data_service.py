@@ -57,8 +57,12 @@ class TestDataService:
             ext = path_obj.suffix.lower()
 
             if ext == ".in":
+                if "in" in pairs[stem]:
+                    raise ValidationError(f"Duplicate testcase stem detected: {stem}")
                 pairs[stem]["in"] = filename
             elif ext in (".out", ".ans"):
+                if "out" in pairs[stem]:
+                    raise ValidationError(f"Duplicate testcase stem detected: {stem}")
                 pairs[stem]["out"] = filename
 
         valid_cases = []
