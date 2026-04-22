@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from celery.schedules import crontab
+
 import environ
 
 # ─── Paths ──────────────────────────────────────────────────────────────────
@@ -177,6 +179,16 @@ CELERY_TASK_SOFT_TIME_LIMIT = 240  # 4 minutes soft limit
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # Fair scheduling for judge tasks
 CELERY_TASK_ACKS_LATE = True  # Re-queue on worker crash
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+CELERY_BEAT_SCHEDULE = {
+    "judge-monitor-judges": {
+        "task": "judge.monitor_judges",
+        "schedule": crontab(minute="*/1"),
+    },
+    "judge-cleanup-stale-sessions": {
+        "task": "judge.cleanup_stale_sessions",
+        "schedule": crontab(minute="*/2"),
+    },
+}
 
 
 # ─── Auth ──────────────────────────────────────────────────────────────────

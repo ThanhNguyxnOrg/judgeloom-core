@@ -8,6 +8,10 @@ disabled, synchronous Celery, and minimal logging.
 
 from __future__ import annotations
 
+import os
+
+os.environ.setdefault("DJANGO_SECRET_KEY", "testing-secret-key-not-for-production")
+
 from .base import *  # noqa: F401,F403
 
 # ─── Core ───────────────────────────────────────────────────────────────────
