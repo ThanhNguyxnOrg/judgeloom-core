@@ -37,6 +37,7 @@ api.add_router("/content/", "apps.content.api.router", tags=["content"])
 api.add_router("/tickets/", "apps.tickets.api.router", tags=["tickets"])
 api.add_router("/ratings/", "apps.ratings.api.router", tags=["ratings"])
 api.add_router("/tags/", "apps.tags.api.router", tags=["tags"])
+api.add_router("/health/", "core.health", tags=["health"])
 
 
 # ─── URL Patterns ──────────────────────────────────────────────────────────
