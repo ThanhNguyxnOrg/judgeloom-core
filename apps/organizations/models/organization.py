@@ -33,6 +33,9 @@ class Organization(SluggedModel):
             models.Index(fields=["name"], name="organizations_name_idx"),
         ]
 
+    def get_slug_source(self) -> str:
+        return self.name
+
     @property
     def member_count(self) -> int:
         """Return current number of members.
