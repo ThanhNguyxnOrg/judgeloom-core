@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 
+from apps.contests.constants import ContestVisibility, ParticipationStatus
+from apps.contests.models import Contest, ContestParticipation, ContestProblem
 from core import events as core_events
 from core.exceptions import ContestAccessDeniedError, ContestError, ContestNotActiveError
 
-from apps.contests.constants import ContestVisibility, ParticipationStatus
-from apps.contests.models import Contest, ContestParticipation, ContestProblem
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class ContestService:

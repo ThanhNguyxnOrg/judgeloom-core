@@ -4,6 +4,7 @@ from django.db import models
 
 from core.models import TimestampedModel
 
+
 class ProblemTestCase(TimestampedModel):
     """Represents an individual testcase inside a problem's test data."""
 

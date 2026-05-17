@@ -53,4 +53,4 @@ def debug_task(self: Celery) -> None:
     Prints the current request info to the worker log. Useful for
     testing that the broker, backend, and worker are wired correctly.
     """
-    print(f"Request: {self.request!r}")  # noqa: T201
+    print(f"Request: {self.request!r}")

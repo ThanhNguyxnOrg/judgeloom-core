@@ -19,7 +19,6 @@ from tests.factories import (
     ContestFactory,
     ContestParticipationFactory,
     JudgeFactory,
-    LanguageFactory,
     OrganizationFactory,
     ProblemFactory,
     PythonLanguageFactory,

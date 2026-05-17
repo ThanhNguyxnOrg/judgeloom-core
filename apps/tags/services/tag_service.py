@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.db.models import Count, QuerySet
 from django.utils.text import slugify
 
-from apps.problems.models import Problem
 from apps.problems.services import ProblemService
 from apps.tags.models import Tag
 from core.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from apps.problems.models import Problem
+
 
 class TagService:
     """Service layer for tag creation and tagging workflows."""

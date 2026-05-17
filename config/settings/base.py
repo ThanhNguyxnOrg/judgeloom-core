@@ -13,9 +13,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from celery.schedules import crontab
-
 import environ
+from celery.schedules import crontab
 
 # ─── Paths ──────────────────────────────────────────────────────────────────
 

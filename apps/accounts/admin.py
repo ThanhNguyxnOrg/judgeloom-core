@@ -14,7 +14,8 @@ class UserAdmin(DjangoUserAdmin):
     list_filter = ("is_staff", "is_superuser", "is_active", "is_banned", "language", "theme")
     search_fields = ("username", "email", "first_name", "last_name")
     ordering = ("username",)
-    fieldsets = DjangoUserAdmin.fieldsets + (
+    fieldsets = (
+        *DjangoUserAdmin.fieldsets,
         (
             "JudgeLoom",
             {

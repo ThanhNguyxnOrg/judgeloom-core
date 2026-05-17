@@ -8,7 +8,7 @@ from django.core.mail import send_mail
 from django.utils import timezone
 
 from core.cache import invalidate_pattern
-from core.events import Event, USER_REGISTERED, publish_sync
+from core.events import USER_REGISTERED, Event, publish_sync
 
 
 class AccountMaintenanceService:

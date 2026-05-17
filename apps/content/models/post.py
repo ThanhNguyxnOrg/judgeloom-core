@@ -6,6 +6,7 @@ from django.utils import timezone
 from apps.content.constants import PostVisibility
 from core.models import SluggedModel
 
+
 class BlogPost(SluggedModel):
     """Markdown blog post published on the platform."""
 

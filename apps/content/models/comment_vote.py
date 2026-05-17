@@ -4,6 +4,7 @@ from django.db import models
 
 from core.models import TimestampedModel
 
+
 class CommentVote(TimestampedModel):
     """A user vote on a comment with +1 or -1 value."""
 

@@ -42,6 +42,6 @@ def rejudge_submissions(submission_ids: list[int]) -> None:
     Args:
         submission_ids: Submission ids to enqueue.
     """
-    task = cast(Any, judge_submission)
+    task = cast("Any", judge_submission)
     for submission_id in submission_ids:
         task.delay(submission_id)

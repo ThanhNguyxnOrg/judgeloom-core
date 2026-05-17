@@ -81,9 +81,7 @@ class Command(BaseCommand):
                 continue
 
             if dry_run:
-                self.stdout.write(
-                    f"  {contest.key}: would recalculate {participant_count} rating(s)"
-                )
+                self.stdout.write(f"  {contest.key}: would recalculate {participant_count} rating(s)")
                 continue
 
             with transaction.atomic():
@@ -118,8 +116,6 @@ class Command(BaseCommand):
                         max_rating=max(rating.rating_after, rating.user.max_rating),
                     )
 
-            self.stdout.write(
-                f"  {contest.key}: recalculated {participant_count} rating(s)"
-            )
+            self.stdout.write(f"  {contest.key}: recalculated {participant_count} rating(s)")
 
         self.stdout.write(self.style.SUCCESS("Rating recalculation complete."))

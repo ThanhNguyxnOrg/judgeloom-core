@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.db.models import Q, QuerySet
 
 from apps.problems.constants import ProblemVisibility, SolutionVerdict
 from apps.problems.models import Problem, Solution
-from core.events import Event, PROBLEM_CREATED, PROBLEM_UPDATED, publish_sync
+from core.events import PROBLEM_CREATED, PROBLEM_UPDATED, Event, publish_sync
 from core.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class ProblemService:

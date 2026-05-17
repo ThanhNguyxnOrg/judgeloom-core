@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import QuerySet
 from django.template.defaultfilters import slugify
 from django.utils import timezone
 
@@ -12,6 +11,8 @@ from core.exceptions import NotFoundError, ValidationError
 from core.validators import validate_slug
 
 if TYPE_CHECKING:
+    from django.db.models import QuerySet
+
     from apps.accounts.models import User
 
 

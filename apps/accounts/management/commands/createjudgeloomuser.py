@@ -94,7 +94,6 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Created user '{user.username}' with role '{role}'"
-                f"{' (superuser)' if is_superuser else ''}."
+                f"Created user '{user.username}' with role '{role}'{' (superuser)' if is_superuser else ''}."
             )
         )

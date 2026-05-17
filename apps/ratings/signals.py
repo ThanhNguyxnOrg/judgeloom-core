@@ -44,11 +44,7 @@ def sync_user_rating_on_save(
     new_rating = instance.rating_after
     update_fields: dict[str, Any] = {"rating": new_rating}
 
-    current_max = (
-        User.objects.filter(pk=instance.user_id)
-        .values_list("max_rating", flat=True)
-        .first()
-    ) or 0
+    current_max = (User.objects.filter(pk=instance.user_id).values_list("max_rating", flat=True).first()) or 0
 
     if new_rating > current_max:
         update_fields["max_rating"] = new_rating

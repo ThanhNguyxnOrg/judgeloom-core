@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ninja import Schema
+
+if TYPE_CHECKING:
+    from datetime import datetime, timedelta
 
 
 class ContestCreateIn(Schema):

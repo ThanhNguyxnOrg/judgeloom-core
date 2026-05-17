@@ -5,9 +5,8 @@ from datetime import timedelta
 from django.db import models
 from django.utils import timezone
 
-from core.models import TimestampedModel
-
 from apps.contests.constants import ParticipationStatus
+from core.models import TimestampedModel
 
 
 class ContestParticipation(TimestampedModel):

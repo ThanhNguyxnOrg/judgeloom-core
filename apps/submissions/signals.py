@@ -51,14 +51,10 @@ def update_user_stats_on_completion(
         result=SubmissionResult.AC,
     )
 
-    problem_count = (
-        accepted_submissions.values("problem_id").distinct().count()
-    )
+    problem_count = accepted_submissions.values("problem_id").distinct().count()
 
     points_aggregate = (
-        accepted_submissions.values("problem_id")
-        .annotate(best=Max("points"))
-        .aggregate(total=Sum("best"))
+        accepted_submissions.values("problem_id").annotate(best=Max("points")).aggregate(total=Sum("best"))
     )
     total_points = points_aggregate.get("total") or 0.0
 

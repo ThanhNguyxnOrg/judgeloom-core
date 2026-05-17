@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from django.apps import AppConfig
 
+
 class TicketsConfig(AppConfig):
     """Application configuration for the tickets app."""
 

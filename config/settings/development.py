@@ -8,7 +8,7 @@ verbose SQL logging, Django Debug Toolbar, and console email.
 
 from __future__ import annotations
 
-from .base import *  # noqa: F401,F403
+from .base import *  # noqa: F403
 from .base import INSTALLED_APPS, MIDDLEWARE
 
 # ─── Core ───────────────────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
-SECRET_KEY = "dev-insecure-key-do-not-use-in-production-judgeloom-2024"  # noqa: S105
+SECRET_KEY = "dev-insecure-key-do-not-use-in-production-judgeloom-2024"
 
 
 # ─── Debug Toolbar ─────────────────────────────────────────────────────────

@@ -26,7 +26,7 @@ SAMPLE_PROBLEMS: list[dict[str, object]] = [
             "Given two integers **a** and **b**, compute their sum.\n\n"
             "### Input\n"
             "A single line containing two space-separated integers "
-            "a and b (−10⁹ ≤ a, b ≤ 10⁹).\n\n"
+            "a and b (-10⁹ ≤ a, b ≤ 10⁹).\n\n"
             "### Output\n"
             "Print a single integer — the sum of a and b.\n\n"
             "### Example\n"
@@ -106,6 +106,4 @@ class Command(BaseCommand):
             created_count += 1
             self.stdout.write(f"  Created problem: {code}")
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Seeded {created_count} problem(s).")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Seeded {created_count} problem(s)."))

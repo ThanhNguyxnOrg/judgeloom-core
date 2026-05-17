@@ -10,8 +10,6 @@ from __future__ import annotations
 import pytest
 
 from apps.accounts.constants import UserRole
-from apps.accounts.models import User
-from tests.factories import AdminUserFactory, UserFactory
 
 
 @pytest.mark.django_db

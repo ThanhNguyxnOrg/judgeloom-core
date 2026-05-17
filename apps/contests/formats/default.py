@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from apps.contests.formats.base import AbstractContestFormat
 from apps.contests.formats import register_format
-from apps.contests.models import ContestParticipation, ContestProblem
+from apps.contests.formats.base import AbstractContestFormat
+
+if TYPE_CHECKING:
+    from apps.contests.models import ContestParticipation, ContestProblem
 
 
 class DefaultFormatConfig(BaseModel):

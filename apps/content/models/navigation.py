@@ -4,6 +4,7 @@ from django.db import models
 
 from core.models import OrderedModel
 
+
 class NavigationItem(OrderedModel):
     """Navigation item that supports hierarchical menus."""
 

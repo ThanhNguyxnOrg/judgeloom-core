@@ -4,6 +4,7 @@ from django.db import models
 
 from core.models import SluggedModel
 
+
 class Tag(SluggedModel):
     """Taxonomy tag used to categorize competitive programming problems."""
 

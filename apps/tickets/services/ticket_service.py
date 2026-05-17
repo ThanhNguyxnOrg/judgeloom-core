@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-
-from typing import Any
-
-from django.db.models import QuerySet
+from typing import TYPE_CHECKING, Any
 
 from apps.tickets.constants import TicketStatus
 from apps.tickets.models import Ticket, TicketMessage
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 
 class TicketService:
@@ -140,9 +140,9 @@ class TicketService:
             Filtered queryset of tickets.
         """
 
-        base_queryset = Ticket.objects.select_related(
-            "author", "linked_problem", "linked_contest"
-        ).prefetch_related("assignees")
+        base_queryset = Ticket.objects.select_related("author", "linked_problem", "linked_contest").prefetch_related(
+            "assignees"
+        )
 
         if getattr(user, "is_authenticated", False) and getattr(user, "is_staff", False):
             return base_queryset
@@ -160,6 +160,4 @@ class TicketService:
             QuerySet containing open and in-progress tickets.
         """
 
-        return Ticket.objects.select_related("author").filter(
-            status__in=[TicketStatus.OPEN, TicketStatus.IN_PROGRESS]
-        )
+        return Ticket.objects.select_related("author").filter(status__in=[TicketStatus.OPEN, TicketStatus.IN_PROGRESS])

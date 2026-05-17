@@ -7,11 +7,10 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from core import events as core_events
-
 from apps.contests.models import Contest
 from apps.contests.services.ranking_service import RankingService
 from apps.ratings.models import Rating
+from core import events as core_events
 
 
 class RatingService:
@@ -36,8 +35,7 @@ class RatingService:
 
         user_model = get_user_model()
         users_by_id = {
-            user.id: user
-            for user in user_model.objects.filter(id__in=[entry["user_id"] for entry in participants])
+            user.id: user for user in user_model.objects.filter(id__in=[entry["user_id"] for entry in participants])
         }
 
         contestants: list[dict[str, Any]] = []
@@ -201,9 +199,9 @@ class RatingService:
                 actual /= n - 1
 
             k = k_base * (1.25 if rating < 2000 else 1.0)
-            delta = int(round(k * (actual - expected)))
+            delta = round(k * (actual - expected))
             rating_after = max(RatingService._rating_floor(), int(rating) + delta)
-            performance = int(round(rating + 400.0 * (actual - expected)))
+            performance = round(rating + 400.0 * (actual - expected))
 
             contestant["rating_after"] = rating_after
             contestant["volatility_before"] = 0

@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.apps import apps
-from django.db.models import Model, QuerySet
 from django.utils import timezone
 from pydantic import BaseModel
 
-from apps.contests.models import Contest, ContestParticipation, ContestProblem
+if TYPE_CHECKING:
+    from django.db.models import Model, QuerySet
+
+    from apps.contests.models import Contest, ContestParticipation, ContestProblem
 
 
 class EmptyConfig(BaseModel):
@@ -146,10 +148,7 @@ class AbstractContestFormat(ABC):
         if freeze_time and "created_at" in field_names:
             queryset = queryset.filter(created_at__lte=freeze_time)
 
-        if "created_at" in field_names:
-            queryset = queryset.order_by("created_at", "id")
-        else:
-            queryset = queryset.order_by("id")
+        queryset = queryset.order_by("created_at", "id") if "created_at" in field_names else queryset.order_by("id")
         return queryset
 
     def _is_accepted(self, submission: Model) -> bool:

@@ -121,7 +121,7 @@ def create_submission(request: Any, payload: SubmissionCreateIn) -> SubmissionDe
     """
     _require_authenticated(request)
 
-    Problem = _get_problem_model()
+    Problem = _get_problem_model()  # noqa: N806 — Django model class
     Language = apps.get_model("judge", "Language")
 
     problem = Problem.objects.filter(code=payload.problem_code).first()

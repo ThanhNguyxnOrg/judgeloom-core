@@ -20,10 +20,11 @@ from typing import TYPE_CHECKING, Any
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.http import HttpRequest
 from ninja.security import HttpBearer
 
 if TYPE_CHECKING:
+    from django.http import HttpRequest
+
     from apps.accounts.models import User
 
 
@@ -44,7 +45,7 @@ class JudgeLoomAuth(HttpBearer):
         Returns:
             The authenticated User instance, or None if invalid.
         """
-        UserModel = get_user_model()
+        UserModel = get_user_model()  # noqa: N806 — Django model class
 
         try:
             payload = jwt.decode(
@@ -77,11 +78,7 @@ def is_authenticated(request: HttpRequest) -> bool:
     Returns:
         True if the user is logged in and active.
     """
-    return bool(
-        hasattr(request, "user")
-        and request.user.is_authenticated
-        and request.user.is_active
-    )
+    return bool(hasattr(request, "user") and request.user.is_authenticated and request.user.is_active)
 
 
 def is_staff(request: HttpRequest) -> bool:

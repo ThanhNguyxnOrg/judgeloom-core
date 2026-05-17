@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ninja import Schema
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
 
 class PostCreateIn(Schema):
     """Payload for creating a blog post."""
@@ -14,6 +18,7 @@ class PostCreateIn(Schema):
     is_organization_private: bool = False
     organization_ids: list[int] = []
     og_image: str | None = None
+
 
 class PostUpdateIn(Schema):
     """Payload for updating a blog post."""
@@ -27,6 +32,7 @@ class PostUpdateIn(Schema):
     organization_ids: list[int] | None = None
     og_image: str | None = None
 
+
 class PostListOut(Schema):
     """Blog post list item response."""
 
@@ -38,6 +44,7 @@ class PostListOut(Schema):
     publish_date: datetime | None = None
     author_id: int
 
+
 class PostDetailOut(PostListOut):
     """Detailed blog post response."""
 
@@ -46,11 +53,13 @@ class PostDetailOut(PostListOut):
     organizations: list[int]
     og_image: str | None = None
 
+
 class CommentIn(Schema):
     """Payload for adding or editing a comment."""
 
     body: str
     parent_id: int | None = None
+
 
 class CommentOut(Schema):
     """Serialized threaded comment node."""
@@ -65,12 +74,14 @@ class CommentOut(Schema):
     score: int
     created_at: datetime
     updated_at: datetime
-    children: list["CommentOut"] = []
+    children: list[CommentOut] = []
+
 
 class CommentVoteIn(Schema):
     """Payload for a comment vote."""
 
     value: int
+
 
 class NavigationOut(Schema):
     """Navigation menu node."""
@@ -82,4 +93,4 @@ class NavigationOut(Schema):
     icon: str
     order: int
     is_external: bool
-    children: list["NavigationOut"] = []
+    children: list[NavigationOut] = []

@@ -10,7 +10,9 @@ class Rating(TimestampedModel):
 
     user = models.ForeignKey("accounts.User", on_delete=models.CASCADE, related_name="ratings")
     contest = models.ForeignKey("contests.Contest", on_delete=models.CASCADE, related_name="ratings")
-    participation = models.OneToOneField("contests.ContestParticipation", on_delete=models.CASCADE, related_name="rating")
+    participation = models.OneToOneField(
+        "contests.ContestParticipation", on_delete=models.CASCADE, related_name="rating"
+    )
 
     rank = models.PositiveIntegerField()
     rating_before = models.IntegerField()

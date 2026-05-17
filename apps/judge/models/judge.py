@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.utils import timezone
 
 from core.models import TimestampedModel
+
+if TYPE_CHECKING:
+    from datetime import timedelta
 
 
 class Judge(TimestampedModel):

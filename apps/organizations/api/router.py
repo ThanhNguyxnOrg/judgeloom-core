@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from django.contrib.auth import get_user_model
-from django.http import HttpRequest
 from ninja import Router, Schema
 
 from apps.organizations.api.schemas import (
@@ -20,6 +19,8 @@ from core.exceptions import NotFoundError, PermissionDeniedError, ValidationErro
 from core.permissions import JudgeLoomAuth
 
 if TYPE_CHECKING:
+    from django.http import HttpRequest
+
     from apps.accounts.models import User
 
 router = Router(tags=["organizations"])
@@ -44,15 +45,14 @@ def _request_user(request: HttpRequest) -> User:
         ValidationError: If request has no authenticated user.
     """
 
-    user_model = cast(type[User], get_user_model())
+    user_model = cast("type[User]", get_user_model())
     auth_user = getattr(request, "auth", None)
     if isinstance(auth_user, user_model):
-        return cast(User, auth_user)
+        return cast("User", auth_user)
 
     request_user = getattr(request, "user", None)
-    if request_user is not None and isinstance(request_user, user_model):
-        if request_user.is_authenticated:
-            return cast(User, request_user)
+    if request_user is not None and isinstance(request_user, user_model) and request_user.is_authenticated:
+        return cast("User", request_user)
 
     raise ValidationError("Authentication required.")
 

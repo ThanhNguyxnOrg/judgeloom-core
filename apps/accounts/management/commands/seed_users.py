@@ -104,6 +104,4 @@ class Command(BaseCommand):
             created_count += 1
             self.stdout.write(f"  Created '{username}' ({user_data['role']})")
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Seeded {created_count} user(s).")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Seeded {created_count} user(s)."))

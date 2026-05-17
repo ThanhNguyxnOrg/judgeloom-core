@@ -5,6 +5,7 @@ from django.db import models
 from apps.content.constants import CommentVisibility
 from core.models import TimestampedModel
 
+
 class Comment(TimestampedModel):
     """Threaded comment using a materialized path."""
 

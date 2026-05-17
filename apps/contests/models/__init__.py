@@ -8,6 +8,6 @@ from .participation import ContestParticipation
 __all__ = [
     "Contest",
     "ContestMoss",
-    "ContestProblem",
     "ContestParticipation",
+    "ContestProblem",
 ]

@@ -4,6 +4,7 @@ from django.db import models
 
 from core.models import OrderedModel
 
+
 class TagGroup(OrderedModel):
     """Logical grouping for sets of tags."""
 

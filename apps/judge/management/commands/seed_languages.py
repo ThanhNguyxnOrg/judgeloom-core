@@ -145,8 +145,4 @@ class Command(BaseCommand):
                 updated_count += 1
                 self.stdout.write(f"  Updated language: {key}")
 
-        self.stdout.write(
-            self.style.SUCCESS(
-                f"Done: {created_count} created, {updated_count} updated."
-            )
-        )
+        self.stdout.write(self.style.SUCCESS(f"Done: {created_count} created, {updated_count} updated."))

@@ -13,6 +13,8 @@ from core.exceptions import ValidationError
 if TYPE_CHECKING:
     from apps.accounts.models import User
 
+    pass
+
 
 class AuthService:
     """Authentication and account security operations."""
@@ -24,7 +26,7 @@ class AuthService:
     def _user_model() -> type[User]:
         """Return configured Django user model as typed class."""
 
-        return cast(type[User], get_user_model())
+        return cast("type[User]", get_user_model())
 
     @staticmethod
     def create_user(username: str, email: str, password: str) -> User:

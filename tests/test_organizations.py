@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.factories import OrganizationFactory, UserFactory
+from tests.factories import UserFactory
 
 
 @pytest.mark.django_db

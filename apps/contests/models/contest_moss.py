@@ -18,8 +18,12 @@ class ContestMoss(TimestampedModel):
     """Stores MOSS run requests/results for contest submissions."""
 
     contest = models.ForeignKey("contests.Contest", on_delete=models.CASCADE, related_name="moss_runs")
-    problem = models.ForeignKey("problems.Problem", on_delete=models.SET_NULL, null=True, blank=True, related_name="moss_runs")
-    language = models.ForeignKey("judge.Language", on_delete=models.SET_NULL, null=True, blank=True, related_name="moss_runs")
+    problem = models.ForeignKey(
+        "problems.Problem", on_delete=models.SET_NULL, null=True, blank=True, related_name="moss_runs"
+    )
+    language = models.ForeignKey(
+        "judge.Language", on_delete=models.SET_NULL, null=True, blank=True, related_name="moss_runs"
+    )
     submission_limit = models.PositiveIntegerField(null=True, blank=True)
     result_url = models.URLField(blank=True)
     status = models.CharField(max_length=16, choices=ContestMossStatus.choices, default=ContestMossStatus.PENDING)

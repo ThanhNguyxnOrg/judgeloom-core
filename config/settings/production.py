@@ -8,7 +8,7 @@ and error monitoring via Sentry. All secrets loaded from environment.
 
 from __future__ import annotations
 
-from .base import *  # noqa: F401,F403
+from .base import *  # noqa: F403
 from .base import MIDDLEWARE, env
 
 # ─── Security ──────────────────────────────────────────────────────────────
@@ -32,7 +32,7 @@ CSRF_COOKIE_HTTPONLY = True
 
 # ─── CORS ──────────────────────────────────────────────────────────────────
 
-INSTALLED_APPS = [  # noqa: F405
+INSTALLED_APPS = [
     "corsheaders",
     *INSTALLED_APPS,  # noqa: F405
 ]

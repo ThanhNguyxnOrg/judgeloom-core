@@ -13,7 +13,7 @@ import pytest
 from django.utils import timezone
 
 from apps.contests.constants import ContestFormat, ParticipationStatus
-from tests.factories import ContestFactory, ContestParticipationFactory, UserFactory
+from tests.factories import ContestFactory
 
 
 @pytest.mark.django_db

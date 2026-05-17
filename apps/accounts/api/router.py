@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from django.contrib.auth import get_user_model
-from django.http import HttpRequest
 from ninja import Router, Schema
 
 from apps.accounts.api.schemas import (
@@ -21,6 +20,8 @@ from core.exceptions import NotFoundError, ValidationError
 from core.permissions import JudgeLoomAuth
 
 if TYPE_CHECKING:
+    from django.http import HttpRequest
+
     from apps.accounts.models import User
 
 router = Router(tags=["accounts"])
@@ -51,16 +52,15 @@ def _request_user(request: HttpRequest) -> User:
         ValidationError: If request is unauthenticated.
     """
 
-    user_model = cast(type[User], get_user_model())
+    user_model = cast("type[User]", get_user_model())
 
     auth_user = getattr(request, "auth", None)
     if isinstance(auth_user, user_model):
-        return cast(User, auth_user)
+        return cast("User", auth_user)
 
     request_user = getattr(request, "user", None)
-    if request_user is not None and isinstance(request_user, user_model):
-        if request_user.is_authenticated:
-            return cast(User, request_user)
+    if request_user is not None and isinstance(request_user, user_model) and request_user.is_authenticated:
+        return cast("User", request_user)
 
     raise ValidationError("Authentication required.")
 
@@ -153,7 +153,7 @@ def public_profile(request: HttpRequest, username: str) -> UserPublicOut:
     """Return public profile for a username."""
 
     _ = request
-    user_model = cast(type[User], get_user_model())
+    user_model = cast("type[User]", get_user_model())
     user = user_model.objects.filter(username__iexact=username).first()
     if user is None:
         raise NotFoundError("User not found.")
@@ -174,7 +174,7 @@ def user_stats(request: HttpRequest, username: str) -> UserStatsOut:
     """Return aggregate statistics for a public user profile."""
 
     _ = request
-    user_model = cast(type[User], get_user_model())
+    user_model = cast("type[User]", get_user_model())
     user = user_model.objects.filter(username__iexact=username).first()
     if user is None:
         raise NotFoundError("User not found.")

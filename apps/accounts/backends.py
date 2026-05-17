@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
-from django.http import HttpRequest
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
 
 
 class JudgeLoomBackend(ModelBackend):

@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from django.http import HttpRequest
 from django.shortcuts import get_object_or_404
 from ninja import Router
 
@@ -17,6 +16,9 @@ from apps.tickets.api.schemas import (
 from apps.tickets.models import Ticket
 from apps.tickets.services import TicketService
 from core.exceptions import PermissionDeniedError
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
 
 router = Router(tags=["tickets"])
 
@@ -57,9 +59,7 @@ def _can_access_ticket(user: Any, ticket: Ticket) -> bool:
         return True
     if ticket.is_public:
         return True
-    if getattr(user, "is_authenticated", False) and ticket.author_id == user.id:
-        return True
-    return False
+    return bool(getattr(user, "is_authenticated", False) and ticket.author_id == user.id)
 
 
 def _to_ticket_list_out(ticket: Ticket) -> TicketListOut:
@@ -114,11 +114,8 @@ def list_tickets(request: HttpRequest, status: str | None = None, user_id: int |
     if status:
         queryset = queryset.filter(status=status)
 
-    if user_id is not None:
-        if getattr(request.user, "is_staff", False):
-            queryset = queryset.filter(author_id=user_id)
-        elif request.user.id == user_id:
-            queryset = queryset.filter(author_id=user_id)
+    if user_id is not None and (getattr(request.user, "is_staff", False) or request.user.id == user_id):
+        queryset = queryset.filter(author_id=user_id)
 
     tickets = queryset.order_by("-created_at").distinct()
     return [_to_ticket_list_out(ticket) for ticket in tickets]

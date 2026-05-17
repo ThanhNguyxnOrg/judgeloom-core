@@ -9,6 +9,7 @@ from apps.content.constants import PostVisibility
 from apps.content.models import BlogPost
 from core.exceptions import NotFoundError
 
+
 class PostService:
     """Business operations for blog posts."""
 
@@ -119,8 +120,7 @@ class PostService:
 
         user_organizations = user.organizations.all()
         return queryset.filter(
-            Q(is_organization_private=False)
-            | Q(is_organization_private=True, organizations__in=user_organizations)
+            Q(is_organization_private=False) | Q(is_organization_private=True, organizations__in=user_organizations)
         ).distinct()
 
     @staticmethod
@@ -138,9 +138,7 @@ class PostService:
         """
 
         try:
-            return BlogPost.objects.select_related("author").prefetch_related("organizations").get(
-                slug=slug
-            )
+            return BlogPost.objects.select_related("author").prefetch_related("organizations").get(slug=slug)
         except BlogPost.DoesNotExist as exc:
             raise NotFoundError(f"Post with slug '{slug}' was not found.") from exc
 

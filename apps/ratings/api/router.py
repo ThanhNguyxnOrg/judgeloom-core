@@ -6,12 +6,11 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from ninja import Router
 
-from core.exceptions import ContestAccessDeniedError
-from core.permissions import is_superuser
-
 from apps.contests.models import Contest
 from apps.ratings.api.schemas import RatingChangeOut, RatingHistoryOut, RatingOut
 from apps.ratings.services.rating_service import RatingService
+from core.exceptions import ContestAccessDeniedError
+from core.permissions import is_superuser
 
 router = Router(tags=["ratings"])
 

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import hmac
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
 
 from apps.judge.models import Judge
-from apps.judge.services import JudgeService
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from apps.submissions.services import SubmissionService
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class JudgeHandler:

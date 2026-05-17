@@ -11,7 +11,7 @@ registry: dict[str, type[AbstractContestFormat]] = {}
 _DISCOVERED = False
 
 
-def register_format(format_cls: FormatType) -> FormatType:
+def register_format[FormatType: type[AbstractContestFormat]](format_cls: FormatType) -> FormatType:
     """Register a contest format class in global registry.
 
     Args:

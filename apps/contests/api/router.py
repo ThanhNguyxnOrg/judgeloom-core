@@ -5,10 +5,6 @@ from typing import Any
 from django.shortcuts import get_object_or_404
 from ninja import Router
 
-from core.exceptions import ContestAccessDeniedError
-from core.pagination import PaginationParams, paginate_queryset
-from core.permissions import is_authenticated, is_staff
-
 from apps.contests.api.schemas import (
     ContestCreateIn,
     ContestDetailOut,
@@ -22,6 +18,9 @@ from apps.contests.api.schemas import (
 from apps.contests.models import Contest, ContestParticipation
 from apps.contests.services.contest_service import ContestService
 from apps.contests.services.ranking_service import RankingService
+from core.exceptions import ContestAccessDeniedError
+from core.pagination import PaginationParams, paginate_queryset
+from core.permissions import is_authenticated, is_staff
 
 router = Router(tags=["contests"])
 
@@ -32,10 +31,7 @@ def list_contests(request, page: int = 1, page_size: int = 20) -> list[dict[str,
 
     queryset = ContestService.get_visible_contests(request.user)
     paginated = paginate_queryset(queryset, PaginationParams(page=page, page_size=page_size))
-    if isinstance(paginated, dict):
-        rows = paginated.get("items", [])
-    else:
-        rows = paginated
+    rows = paginated.get("items", []) if isinstance(paginated, dict) else paginated
 
     return [
         {

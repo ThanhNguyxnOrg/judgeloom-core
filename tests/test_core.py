@@ -27,6 +27,7 @@ class TestPermissions:
     @pytest.mark.django_db
     def test_judgeloom_auth_with_sub(self, user):
         from apps.accounts.services.auth_service import AuthService
+
         token = AuthService.generate_jwt_token(user)
 
         auth = JudgeLoomAuth()
@@ -40,8 +41,9 @@ class TestPermissions:
     @pytest.mark.django_db
     def test_judgeloom_auth_with_user_id(self, user):
         # Create a mock legacy token
+        from datetime import UTC, datetime, timedelta
+
         import jwt
-        from datetime import datetime, timedelta, UTC
         from django.conf import settings
 
         now = datetime.now(UTC)
@@ -59,7 +61,6 @@ class TestPermissions:
 
         assert authenticated_user is not None
         assert authenticated_user.pk == user.pk
-
 
 
 class TestCacheUtils:

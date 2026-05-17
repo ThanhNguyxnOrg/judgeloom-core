@@ -4,7 +4,6 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from apps.judge.models import Judge
 from apps.judge.services.judge_service import JudgeService
 from apps.submissions.constants import SubmissionStatus
 from apps.submissions.models import Submission

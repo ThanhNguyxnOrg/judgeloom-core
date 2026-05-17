@@ -58,9 +58,7 @@ def validate_time_limit(value: float) -> None:
         ValidationError: If outside the allowed range.
     """
     if not (0.1 <= value <= 60.0):
-        raise ValidationError(
-            f"Time limit must be between 0.1 and 60 seconds, got {value}."
-        )
+        raise ValidationError(f"Time limit must be between 0.1 and 60 seconds, got {value}.")
 
 
 def validate_memory_limit(value: int) -> None:
@@ -75,9 +73,7 @@ def validate_memory_limit(value: int) -> None:
         ValidationError: If outside the allowed range.
     """
     if not (1024 <= value <= 1_048_576):
-        raise ValidationError(
-            f"Memory limit must be between 1024 KB and 1048576 KB, got {value}."
-        )
+        raise ValidationError(f"Memory limit must be between 1024 KB and 1048576 KB, got {value}.")
 
 
 def validate_source_code_size(value: str | bytes) -> None:
@@ -94,16 +90,24 @@ def validate_source_code_size(value: str | bytes) -> None:
     max_size: int = settings.JUDGELOOM["MAX_SUBMISSION_SIZE"]
     size = len(value.encode("utf-8")) if isinstance(value, str) else len(value)
     if size > max_size:
-        raise ValidationError(
-            f"Source code size ({size} bytes) exceeds the maximum "
-            f"allowed size ({max_size} bytes)."
-        )
+        raise ValidationError(f"Source code size ({size} bytes) exceeds the maximum allowed size ({max_size} bytes).")
 
 
-_ALLOWED_EXTENSIONS: frozenset[str] = frozenset({
-    ".pdf", ".png", ".jpg", ".jpeg", ".gif", ".svg",
-    ".zip", ".tar", ".gz", ".txt", ".md",
-})
+_ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".svg",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".txt",
+        ".md",
+    }
+)
 
 
 def validate_file_extension(filename: str, allowed: frozenset[str] | None = None) -> None:
@@ -121,10 +125,7 @@ def validate_file_extension(filename: str, allowed: frozenset[str] | None = None
         allowed = _ALLOWED_EXTENSIONS
     ext = "." + filename.rsplit(".", maxsplit=1)[-1].lower() if "." in filename else ""
     if ext not in allowed:
-        raise ValidationError(
-            f"File extension '{ext}' is not allowed. "
-            f"Permitted: {', '.join(sorted(allowed))}."
-        )
+        raise ValidationError(f"File extension '{ext}' is not allowed. Permitted: {', '.join(sorted(allowed))}.")
 
 
 def validate_positive_integer(value: Any) -> None:

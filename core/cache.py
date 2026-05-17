@@ -81,8 +81,7 @@ def invalidate_pattern(prefix: str) -> None:
         import logging
 
         logging.getLogger(__name__).warning(
-            "Cache backend does not support delete_pattern. "
-            "Key prefix '%s' was NOT invalidated.",
+            "Cache backend does not support delete_pattern. Key prefix '%s' was NOT invalidated.",
             prefix,
         )
 

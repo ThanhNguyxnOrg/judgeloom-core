@@ -9,6 +9,7 @@ from apps.content.constants import CommentVisibility
 from apps.content.models import BlogPost, Comment, CommentVote
 from core.exceptions import ValidationError
 
+
 class CommentService:
     """Business operations for threaded comments."""
 
@@ -55,9 +56,7 @@ class CommentService:
             if parent.depth >= cls.MAX_DEPTH:
                 raise ValidationError("Maximum comment depth reached.")
             sibling_paths = list(
-                Comment.objects.select_for_update()
-                .filter(post=post, parent=parent)
-                .values_list("path", flat=True)
+                Comment.objects.select_for_update().filter(post=post, parent=parent).values_list("path", flat=True)
             )
             segment = cls._next_segment(sibling_paths)
             new_path = f"{parent.path}.{segment}"
@@ -150,11 +149,7 @@ class CommentService:
             QuerySet ordered by materialized path.
         """
 
-        return (
-            Comment.objects.select_related("author", "parent")
-            .filter(post=post)
-            .order_by("path")
-        )
+        return Comment.objects.select_related("author", "parent").filter(post=post).order_by("path")
 
     @classmethod
     def get_comment_tree(cls, post: BlogPost) -> list[dict[str, Any]]:

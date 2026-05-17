@@ -15,11 +15,13 @@ Functions:
 
 from __future__ import annotations
 
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from django.conf import settings
-from django.db.models import QuerySet
 from ninja import Field, Schema
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 T = TypeVar("T")
 
@@ -43,7 +45,7 @@ class PaginationParams(Schema):
     )
 
 
-class PagedResponse(Schema, Generic[T]):
+class PagedResponse[T](Schema):
     """Wrapper for paginated API responses.
 
     Attributes:

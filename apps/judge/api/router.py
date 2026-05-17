@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
-from django.http import HttpRequest
 from ninja import Router
 
 from apps.judge.api.schemas import JudgeDetailOut, JudgeOut, LanguageOut
 from apps.judge.services import JudgeService
 from core.exceptions import PermissionDeniedError
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
 
 router = Router(tags=["judge"])
 

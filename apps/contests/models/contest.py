@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any
 
 from django.db import models
 from django.utils import timezone
 
-from core.models import SluggedModel
-
 from apps.contests.constants import ContestFormat, ContestVisibility
+from core.models import SluggedModel
 
 
 class Contest(SluggedModel):

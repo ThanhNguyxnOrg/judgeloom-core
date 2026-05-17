@@ -14,10 +14,14 @@ Usage::
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.core.management.base import BaseCommand, CommandError, CommandParser
-from django.db.models import QuerySet
 
 from apps.submissions.models import Submission
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 
 class Command(BaseCommand):
@@ -70,9 +74,7 @@ class Command(BaseCommand):
         id_to: int | None = options["id_to"]  # type: ignore[assignment]
 
         if not any([problem_code, usernames, id_from, id_to]):
-            raise CommandError(
-                "At least one filter is required: --problem, --user, --id-from, or --id-to."
-            )
+            raise CommandError("At least one filter is required: --problem, --user, --id-from, or --id-to.")
 
         queryset: QuerySet[Submission] = Submission.objects.all()
 
@@ -97,6 +99,4 @@ class Command(BaseCommand):
         submission_ids = list(queryset.values_list("pk", flat=True))
         rejudge_submissions.delay(submission_ids)
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Enqueued {count} submission(s) for rejudge.")
-        )
+        self.stdout.write(self.style.SUCCESS(f"Enqueued {count} submission(s) for rejudge."))

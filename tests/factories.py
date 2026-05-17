@@ -26,7 +26,7 @@ from apps.organizations.models import Organization
 from apps.problems.constants import ProblemVisibility
 from apps.problems.models import Problem
 from apps.ratings.models import Rating
-from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.constants import SubmissionStatus
 from apps.submissions.models import Submission
 from apps.tags.models import Tag
 from apps.tickets.constants import TicketPriority, TicketStatus

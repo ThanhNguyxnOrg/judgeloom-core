@@ -5,6 +5,7 @@ from django.db import models
 from apps.problems.constants import SolutionVerdict
 from core.models import TimestampedModel
 
+
 class Solution(TimestampedModel):
     """Stores user-authored writeups or official solutions for problems."""
 

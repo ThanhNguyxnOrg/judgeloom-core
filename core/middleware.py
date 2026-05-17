@@ -55,7 +55,7 @@ class TimezoneMiddleware:
             if user_tz:
                 try:
                     dj_timezone.activate(user_tz)
-                except Exception:  # noqa: BLE001 — invalid tz should not crash
+                except Exception:
                     dj_timezone.deactivate()
             else:
                 dj_timezone.deactivate()
@@ -114,7 +114,7 @@ class RateLimitMiddleware:
     units are seconds (s), minutes (m), hours (h), and days (d).
     """
 
-    def __init__(self, get_response: "Callable[[HttpRequest], HttpResponse]") -> None:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         """Initialize the middleware and parse its rate limit configuration.
 
         Args:
@@ -179,7 +179,7 @@ class RateLimitMiddleware:
         return limit, window_seconds
 
     @staticmethod
-    def _get_client_ip(request: "HttpRequest") -> str:
+    def _get_client_ip(request: HttpRequest) -> str:
         """Resolve the client IP address from the request.
 
         Prefers ``X-Forwarded-For`` (first hop) when present.
@@ -196,7 +196,7 @@ class RateLimitMiddleware:
             return forwarded_for.split(",", 1)[0].strip()
         return str(request.META.get("REMOTE_ADDR", "unknown"))
 
-    def __call__(self, request: "HttpRequest") -> "HttpResponse":
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         """Apply rate limiting to API requests.
 
         Args:

@@ -1,28 +1,31 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet
 from django.utils import timezone
 
-from apps.judge.models import Language
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission, SubmissionSource, SubmissionTestCase
 from core.events import (
-    Event,
     SUBMISSION_CREATED,
     SUBMISSION_JUDGED,
     SUBMISSION_JUDGING,
     SUBMISSION_REJUDGED,
+    Event,
     publish_sync,
 )
 from core.exceptions import NotFoundError, SubmissionError
 from core.validators import validate_source_code_size
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+
+    from apps.judge.models import Language
 
 
 class SubmissionService:
@@ -70,7 +73,7 @@ class SubmissionService:
 
         from apps.submissions.tasks import judge_submission
 
-        cast(Any, judge_submission).delay(submission.id)
+        cast("Any", judge_submission).delay(submission.id)
         return submission
 
     @classmethod
@@ -175,7 +178,7 @@ class SubmissionService:
 
         from apps.submissions.tasks import judge_submission
 
-        cast(Any, judge_submission).delay(submission.id)
+        cast("Any", judge_submission).delay(submission.id)
 
     @classmethod
     def rejudge_problem(cls, problem: Any) -> int:
@@ -187,9 +190,7 @@ class SubmissionService:
         Returns:
             Number of queued submissions.
         """
-        submission_ids = list(
-            Submission.objects.filter(problem=problem).values_list("id", flat=True)
-        )
+        submission_ids = list(Submission.objects.filter(problem=problem).values_list("id", flat=True))
         if not submission_ids:
             return 0
 
@@ -210,7 +211,7 @@ class SubmissionService:
 
         from apps.submissions.tasks import rejudge_submissions
 
-        cast(Any, rejudge_submissions).delay(submission_ids)
+        cast("Any", rejudge_submissions).delay(submission_ids)
         return len(submission_ids)
 
     @classmethod
@@ -244,9 +245,7 @@ class SubmissionService:
             submission.memory_used = int(result_data.get("memory_used", submission.memory_used))
             submission.case_total = int(result_data.get("case_total", submission.case_total))
             submission.case_passed = int(result_data.get("case_passed", submission.case_passed))
-            submission.current_testcase = int(
-                result_data.get("current_testcase", submission.current_testcase)
-            )
+            submission.current_testcase = int(result_data.get("current_testcase", submission.current_testcase))
             submission.error_message = str(result_data.get("error_message", submission.error_message))
             submission.judged_at = timezone.now()
             submission.save()

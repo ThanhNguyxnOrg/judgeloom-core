@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 
 from apps.contests.formats import get_format
-from apps.contests.models import Contest, ContestParticipation
+
+if TYPE_CHECKING:
+    from apps.contests.models import Contest, ContestParticipation
 
 
 class RankingService:

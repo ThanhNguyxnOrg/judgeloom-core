@@ -13,6 +13,7 @@ from core.permissions import JudgeLoomAuth, is_staff
 
 router = Router(tags=["tags"])
 
+
 def _serialize_problem(problem: Any) -> ProblemListOut:
     """Serialize problem shape used by tag detail endpoint."""
 
@@ -26,10 +27,12 @@ def _serialize_problem(problem: Any) -> ProblemListOut:
         is_public=problem.is_public,
     )
 
+
 def _serialize_tag(tag: Tag) -> TagOut:
     """Serialize tag list output."""
 
     return TagOut(name=tag.name, code=tag.code, problem_count=tag.problem_count)
+
 
 @router.get("/", response=list[TagOut], auth=JudgeLoomAuth())
 def list_tags(request: Any) -> list[TagOut]:
@@ -38,6 +41,7 @@ def list_tags(request: Any) -> list[TagOut]:
     _ = request
     tags = TagService.get_popular_tags(limit=200)
     return [_serialize_tag(tag) for tag in tags]
+
 
 @router.get("/{code}", response=TagDetailOut, auth=JudgeLoomAuth())
 def get_tag_detail(request: Any, code: str) -> TagDetailOut:
@@ -51,6 +55,7 @@ def get_tag_detail(request: Any, code: str) -> TagDetailOut:
         problem_count=tag.problem_count,
         problems=[_serialize_problem(problem) for problem in problems],
     )
+
 
 @router.post("/", response=TagOut, auth=JudgeLoomAuth())
 def create_tag(request: Any, payload: TagIn) -> TagOut:

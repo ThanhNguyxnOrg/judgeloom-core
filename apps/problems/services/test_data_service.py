@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import zipfile
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
-from django.db.models import QuerySet
 
 from apps.problems.models import Problem, ProblemTestCase, ProblemTestData
 from core.exceptions import ValidationError
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 
 class TestDataService:
@@ -52,7 +54,6 @@ class TestDataService:
             if ".." in path_obj.parts or path_obj.is_absolute():
                 raise ValidationError(f"Invalid file path in archive: {filename}")
 
-            name = path_obj.name
             stem = path_obj.stem
             ext = path_obj.suffix.lower()
 
@@ -79,7 +80,7 @@ class TestDataService:
             raise ValidationError("Archive must contain matching .in and .out/.ans files.")
 
         # Security: Prevent Zip Bomb / DB Exhaustion
-        MAX_TEST_CASES = 200
+        MAX_TEST_CASES = 200  # noqa: N806 — local constant inside function
         if len(valid_cases) > MAX_TEST_CASES:
             raise ValidationError(f"Archive exceeds maximum allowed test cases ({MAX_TEST_CASES}).")
 

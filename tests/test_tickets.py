@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.tickets.constants import TicketPriority, TicketStatus
-from tests.factories import TicketFactory
+from apps.tickets.constants import TicketStatus
 
 
 @pytest.mark.django_db

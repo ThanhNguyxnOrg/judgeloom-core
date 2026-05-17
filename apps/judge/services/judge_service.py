@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from django.db.models import QuerySet
+from typing import TYPE_CHECKING
+
 from django.utils import timezone
 
 from apps.judge.models import Judge, Language
 from core.exceptions import NotFoundError
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 
 class JudgeService:

@@ -12,13 +12,13 @@ import os
 
 os.environ.setdefault("DJANGO_SECRET_KEY", "testing-secret-key-not-for-production")
 
-from .base import *  # noqa: F401,F403
+from .base import *  # noqa: F403
 
 # ─── Core ───────────────────────────────────────────────────────────────────
 
 DEBUG = False
 
-SECRET_KEY = "testing-secret-key-not-for-production"  # noqa: S105
+SECRET_KEY = "testing-secret-key-not-for-production"
 
 ALLOWED_HOSTS = ["*"]
 

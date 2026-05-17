@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from ninja import Schema
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
 
 class ProblemCreateIn(Schema):
     """Input payload for creating a new problem."""
@@ -20,6 +24,7 @@ class ProblemCreateIn(Schema):
     time_limit: float | None = None
     memory_limit: int | None = None
 
+
 class ProblemUpdateIn(Schema):
     """Input payload for updating problem fields."""
 
@@ -35,6 +40,7 @@ class ProblemUpdateIn(Schema):
     time_limit: float | None = None
     memory_limit: int | None = None
 
+
 class ProblemListOut(Schema):
     """Compact problem representation for listing endpoints."""
 
@@ -45,6 +51,7 @@ class ProblemListOut(Schema):
     points: float
     visibility: str
     is_public: bool
+
 
 class ProblemDetailOut(Schema):
     """Detailed representation for a single problem."""
@@ -64,6 +71,7 @@ class ProblemDetailOut(Schema):
     memory_limit: int
     types: list[str]
 
+
 class ProblemStatsOut(Schema):
     """Response schema for problem statistics."""
 
@@ -75,12 +83,14 @@ class ProblemStatsOut(Schema):
     total_wrong: int
     accepted_rate: float
 
+
 class SolutionIn(Schema):
     """Input payload for creating a solution."""
 
     content: str
     is_public: bool = False
     verdict: str | None = None
+
 
 class SolutionOut(Schema):
     """API representation of a solution."""
