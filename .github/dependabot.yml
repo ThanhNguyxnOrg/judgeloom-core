@@ -1,7 +1,12 @@
 # =============================================================================
 # JudgeLoom — Dependabot Configuration
 # =============================================================================
-# Keeps dependencies up-to-date by opening weekly PRs.
+# Strategy: keep dependencies fresh with as few PRs as possible.
+# - Group everything aggressively into a small number of PRs per ecosystem.
+# - Dependabot auto-supersedes outdated PRs with the latest version, so we
+#   never need to "fix up" a stale 1.1.x PR when 1.2.0 lands.
+# Auto-merge for safe (patch / minor / dev) bumps is handled by
+# .github/workflows/dependabot-auto-merge.yml.
 # Docs: https://docs.github.com/en/code-security/dependabot
 # =============================================================================
 
@@ -15,7 +20,7 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Asia/Ho_Chi_Minh"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "python"
@@ -23,28 +28,21 @@ updates:
       prefix: "chore(deps)"
       include: "scope"
     groups:
-      django:
+      python-production:
+        # All non-dev runtime deps in a single weekly PR per update-type
+        applies-to: version-updates
+        dependency-type: "production"
         patterns:
-          - "django*"
-          - "channels*"
-      lint-and-typing:
+          - "*"
+      python-development:
+        applies-to: version-updates
+        dependency-type: "development"
         patterns:
-          - "ruff*"
-          - "mypy*"
-          - "django-stubs*"
-          - "celery-types*"
-          - "types-*"
-      testing:
+          - "*"
+      python-security:
+        applies-to: security-updates
         patterns:
-          - "pytest*"
-          - "coverage*"
-          - "factory-boy*"
-          - "freezegun*"
-      celery:
-        patterns:
-          - "celery*"
-          - "redis*"
-          - "kombu*"
+          - "*"
 
   # ─── GitHub Actions ──────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
@@ -54,13 +52,17 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Asia/Ho_Chi_Minh"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "ci"
     commit-message:
       prefix: "ci(deps)"
       include: "scope"
+    groups:
+      github-actions-all:
+        patterns:
+          - "*"
 
   # ─── Docker ──────────────────────────────────────────────────────────────
   - package-ecosystem: "docker"
@@ -70,10 +72,14 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Asia/Ho_Chi_Minh"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "docker"
     commit-message:
       prefix: "build(docker)"
       include: "scope"
+    groups:
+      docker-all:
+        patterns:
+          - "*"

@@ -1,0 +1,98 @@
+# =============================================================================
+# JudgeLoom — Dependabot Auto-merge
+# =============================================================================
+# Auto-squash-merges Dependabot PRs after CI passes, but only for "safe"
+# updates: patch / minor version bumps, and any dev-only dependency.
+# Major bumps and runtime production deps with major changes still require
+# manual review.
+# =============================================================================
+
+name: Dependabot auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    name: Auto-merge safe Dependabot PRs
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for CI status checks
+        uses: poseidon/wait-for-status-checks@v0.6.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ignore: "Dependabot auto-merge"
+          delay: "30s"
+          interval: "20s"
+          timeout: "1800"
+
+      - name: Decide whether to auto-merge
+        id: decide
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.meta.outputs.dependency-type }}
+        run: |
+          # Safe categories: patch, minor, security, and any direct:development bump.
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch|version-update:semver-minor)
+              echo "safe=true" >> "$GITHUB_OUTPUT"
+              echo "reason=$UPDATE_TYPE" >> "$GITHUB_OUTPUT"
+              ;;
+            version-update:semver-major)
+              if [ "$DEPENDENCY_TYPE" = "direct:development" ] || [ "$DEPENDENCY_TYPE" = "indirect" ]; then
+                echo "safe=true" >> "$GITHUB_OUTPUT"
+                echo "reason=$UPDATE_TYPE on $DEPENDENCY_TYPE" >> "$GITHUB_OUTPUT"
+              else
+                echo "safe=false" >> "$GITHUB_OUTPUT"
+                echo "reason=major bump on $DEPENDENCY_TYPE — manual review" >> "$GITHUB_OUTPUT"
+              fi
+              ;;
+            *)
+              echo "safe=true" >> "$GITHUB_OUTPUT"
+              echo "reason=$UPDATE_TYPE (default safe)" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Approve PR
+        if: steps.decide.outputs.safe == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr review --approve "$PR_URL" \
+            --body "Auto-approved by dependabot-auto-merge: ${{ steps.decide.outputs.reason }}"
+
+      - name: Squash-merge PR
+        if: steps.decide.outputs.safe == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr merge --squash --delete-branch "$PR_URL"
+
+      - name: Comment on held PRs
+        if: steps.decide.outputs.safe == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" \
+            --body "🛑 Held for manual review: ${{ steps.decide.outputs.reason }}"
