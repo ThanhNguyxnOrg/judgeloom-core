@@ -1,0 +1,89 @@
+﻿name: 🐛 Bug report
+description: Report a reproducible bug or regression in JudgeLoom.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the form below as completely as possible — clear, reproducible reports get fixed fastest.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I have searched the [existing issues](https://github.com/ThanhNguyxnOrg/judgeloom-core/issues?q=is%3Aissue) and have not found a duplicate.
+          required: true
+        - label: I am running the latest commit on the `master` branch (or have stated my version below).
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear and concise description of what the bug is.
+      placeholder: When I do X, Y happens instead of Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps a maintainer can follow to reproduce the issue.
+      value: |
+        1. Go to '...'
+        2. Run '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened? Include logs, stack traces, or screenshots if useful.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: JudgeLoom version / commit
+      placeholder: e.g. v0.1.0 or commit abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: python-version
+    attributes:
+      label: Python version
+      options:
+        - "3.12"
+        - "3.13"
+        - "Other (specify in additional context)"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: e.g. Ubuntu 22.04, macOS 14.5, Windows 11
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else we should know — environment variables, related services, configuration, etc.

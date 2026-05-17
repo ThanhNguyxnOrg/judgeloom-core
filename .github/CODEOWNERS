@@ -1,0 +1,19 @@
+# =============================================================================
+# JudgeLoom — CODEOWNERS
+# =============================================================================
+# Default reviewer for every pull request.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/managing-repository-settings/about-code-owners
+# =============================================================================
+
+# Catch-all — repository owner reviews everything by default
+*                       @ThanhNguyxn07
+
+# CI / GitHub configuration
+/.github/                @ThanhNguyxn07
+
+# Project-wide tooling and configuration
+/pyproject.toml          @ThanhNguyxn07
+/Makefile                @ThanhNguyxn07
+/requirements/           @ThanhNguyxn07
+/docker/                 @ThanhNguyxn07
+/docker-compose*.yml     @ThanhNguyxn07

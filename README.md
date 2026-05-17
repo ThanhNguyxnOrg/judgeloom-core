@@ -1,14 +1,17 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/judgeloom/judgeloom-core/master/docs/assets/logo.png" alt="JudgeLoom Logo" width="200" onerror="this.src='https://via.placeholder.com/200?text=JudgeLoom'">
-  
+﻿<div align="center">
+  <img src="https://raw.githubusercontent.com/ThanhNguyxnOrg/judgeloom-core/master/docs/assets/logo.png" alt="JudgeLoom Logo" width="200" onerror="this.src='https://via.placeholder.com/200?text=JudgeLoom'">
+
   # 🚀 JudgeLoom
-  
+
   **A Next-Generation, High-Performance Competitive Programming Online Judge Platform**
-  
-  [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg?style=for-the-badge&logo=python)](https://www.python.org/)
-  [![Django Version](https://img.shields.io/badge/django-5.1%2B-092E20.svg?style=for-the-badge&logo=django)](https://www.djangoproject.com/)
-  [![PostgreSQL](https://img.shields.io/badge/postgres-16%2B-336791.svg?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
-  [![Redis](https://img.shields.io/badge/redis-7%2B-DC382D.svg?style=for-the-badge&logo=redis)](https://redis.io/)
+
+  [![CI](https://img.shields.io/github/actions/workflow/status/ThanhNguyxnOrg/judgeloom-core/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/ThanhNguyxnOrg/judgeloom-core/actions/workflows/ci.yml)
+  [![CodeQL](https://img.shields.io/github/actions/workflow/status/ThanhNguyxnOrg/judgeloom-core/codeql.yml?branch=master&style=for-the-badge&logo=github&label=CodeQL)](https://github.com/ThanhNguyxnOrg/judgeloom-core/actions/workflows/codeql.yml)
+  [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+  [![Django Version](https://img.shields.io/badge/django-5.1%2B-092E20.svg?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+  [![PostgreSQL](https://img.shields.io/badge/postgres-16%2B-336791.svg?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+  [![Redis](https://img.shields.io/badge/redis-7%2B-DC382D.svg?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+  [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg?style=for-the-badge&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
   [![License](https://img.shields.io/badge/license-AGPL--3.0-brightgreen.svg?style=for-the-badge)](LICENSE)
 </div>
 
@@ -77,7 +80,7 @@ Make sure you have the following installed:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/judgeloom/judgeloom-core.git
+   git clone https://github.com/ThanhNguyxnOrg/judgeloom-core.git
    cd judgeloom-core
    ```
 
@@ -147,19 +150,28 @@ ruff format .
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these steps:
+We welcome contributions! See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full workflow, coding standards, and commit conventions.
+
+In short:
 1. Fork the project.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Write tests and ensure all linters pass.
-4. Commit your changes (we use Conventional Commits).
-5. Push to the branch (`git push origin feature/AmazingFeature`).
-6. Open a Pull Request.
+2. Create your feature branch (`git checkout -b feat/amazing-feature`).
+3. Write tests and run `make check` (lint + typecheck + tests).
+4. Commit using [Conventional Commits](https://www.conventionalcommits.org/).
+5. Push and open a Pull Request against `master`.
+
+By participating, you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.md).
+
+---
+
+## 🔒 Security
+
+Please report vulnerabilities privately — see [`SECURITY.md`](./SECURITY.md). Do **not** open public issues for security problems.
 
 ---
 
 ## 📄 License
 
-Distributed under the **GNU Affero General Public License v3.0**. See `LICENSE` for more information.
+Distributed under the **GNU Affero General Public License v3.0**. See [`LICENSE`](./LICENSE) for the full text.
 
 ---
 <div align="center">

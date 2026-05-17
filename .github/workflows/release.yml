@@ -1,0 +1,56 @@
+# =============================================================================
+# JudgeLoom — Release workflow
+# =============================================================================
+# Publishes a GitHub Release whenever a semver tag (e.g. v1.2.3) is pushed.
+# Auto-generates release notes from merged PRs since the previous tag.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine if pre-release
+        id: prerelease
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          if [[ "$tag" =~ -(alpha|beta|rc|pre|dev) ]]; then
+            echo "value=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.prerelease.outputs.tag }}
+          name: ${{ steps.prerelease.outputs.tag }}
+          generate_release_notes: true
+          prerelease: ${{ steps.prerelease.outputs.value }}
+          draft: false
+          fail_on_unmatched_files: false
