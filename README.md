@@ -1,5 +1,5 @@
 ﻿<div align="center">
-  <img src="https://raw.githubusercontent.com/ThanhNguyxnOrg/judgeloom-core/master/docs/assets/logo.png" alt="JudgeLoom Logo" width="200" onerror="this.src='https://via.placeholder.com/200?text=JudgeLoom'">
+  <img src="docs/assets/logo-512.png" alt="JudgeLoom Logo" width="200" />
 
   # 🚀 JudgeLoom
 
