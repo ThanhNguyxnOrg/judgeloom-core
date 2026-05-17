@@ -1,17 +1,17 @@
 # =============================================================================
 # JudgeLoom — Dependabot Auto-merge
 # =============================================================================
-# Auto-squash-merges Dependabot PRs after CI passes, but only for "safe"
-# updates: patch / minor version bumps, and any dev-only dependency.
-# Major bumps and runtime production deps with major changes still require
-# manual review.
+# Auto-enables GitHub's native auto-merge on Dependabot PRs that are "safe"
+# (patch / minor bumps, or any dev-only dependency). The PR will then be
+# squash-merged by GitHub as soon as required status checks pass.
+# Major bumps on production dependencies are left for manual review.
 # =============================================================================
 
 name: Dependabot auto-merge
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: write
@@ -23,10 +23,10 @@ concurrency:
 
 jobs:
   auto-merge:
-    name: Auto-merge safe Dependabot PRs
+    name: Enable auto-merge for safe Dependabot PRs
     if: github.actor == 'dependabot[bot]' && github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
 
     steps:
       - name: Fetch Dependabot metadata
@@ -34,15 +34,6 @@ jobs:
         uses: dependabot/fetch-metadata@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Wait for CI status checks
-        uses: poseidon/wait-for-status-checks@v0.6.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ignore: "Dependabot auto-merge"
-          delay: "30s"
-          interval: "20s"
-          timeout: "1800"
 
       - name: Decide whether to auto-merge
         id: decide
@@ -80,13 +71,27 @@ jobs:
           gh pr review --approve "$PR_URL" \
             --body "Auto-approved by dependabot-auto-merge: ${{ steps.decide.outputs.reason }}"
 
-      - name: Squash-merge PR
+      - name: Enable GitHub native auto-merge (squash)
         if: steps.decide.outputs.safe == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          gh pr merge --squash --delete-branch "$PR_URL"
+          # --auto requires either a pending check or that no checks are required.
+          # If --auto is unsupported (no required checks), fall back to a direct merge.
+          if ! gh pr merge --squash --delete-branch --auto "$PR_URL" 2>err.log; then
+            cat err.log
+            echo "Falling back to direct squash merge after waiting for checks..."
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              state=$(gh pr view "$PR_URL" --json mergeStateStatus --jq .mergeStateStatus)
+              echo "Attempt $i: mergeStateStatus=$state"
+              if [ "$state" = "CLEAN" ] || [ "$state" = "UNSTABLE" ] || [ "$state" = "HAS_HOOKS" ]; then
+                gh pr merge --squash --delete-branch "$PR_URL" && exit 0
+              fi
+              sleep 30
+            done
+            exit 1
+          fi
 
       - name: Comment on held PRs
         if: steps.decide.outputs.safe == 'false'
