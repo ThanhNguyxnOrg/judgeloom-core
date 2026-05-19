@@ -5,6 +5,10 @@
 # (patch / minor bumps, or any dev-only dependency). The PR will then be
 # squash-merged by GitHub as soon as required status checks pass.
 # Major bumps on production dependencies are left for manual review.
+#
+# NOTE: We skip `gh pr review --approve` because GITHUB_TOKEN cannot approve
+# PRs created by other bots in org repos. If branch protection requires
+# approvals, use a PAT or GitHub App token instead.
 # =============================================================================
 
 name: Dependabot auto-merge
@@ -61,15 +65,6 @@ jobs:
               echo "reason=$UPDATE_TYPE (default safe)" >> "$GITHUB_OUTPUT"
               ;;
           esac
-
-      - name: Approve PR
-        if: steps.decide.outputs.safe == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-        run: |
-          gh pr review --approve "$PR_URL" \
-            --body "Auto-approved by dependabot-auto-merge: ${{ steps.decide.outputs.reason }}"
 
       - name: Enable GitHub native auto-merge (squash)
         if: steps.decide.outputs.safe == 'true'
