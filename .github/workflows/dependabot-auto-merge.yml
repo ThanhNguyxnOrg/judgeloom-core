@@ -93,11 +93,12 @@ jobs:
             exit 1
           fi
 
-      - name: Comment on held PRs
+      - name: Label and comment on held PRs
         if: steps.decide.outputs.safe == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
+          gh pr edit --add-label "major-update,needs-review" "$PR_URL"
           gh pr comment "$PR_URL" \
             --body "🛑 Held for manual review: ${{ steps.decide.outputs.reason }}"
