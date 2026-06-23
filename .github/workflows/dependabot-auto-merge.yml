@@ -66,10 +66,18 @@ jobs:
               ;;
           esac
 
+      - name: Generate GitHub App Token
+        if: steps.decide.outputs.safe == 'true'
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
       - name: Enable GitHub native auto-merge (squash)
         if: steps.decide.outputs.safe == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           # --auto requires either a pending check or that no checks are required.
