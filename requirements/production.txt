@@ -9,7 +9,7 @@ uvicorn[standard]>=0.51.0,<1.0
 daphne>=4.2.2,<5.0
 
 # ─── Monitoring ────────────────────────────────────────────────────────────
-sentry-sdk[django,celery]>=2.64.0,<3.0
+sentry-sdk[django,celery]>=2.66.0,<3.0
 
 # ─── Security ─────────────────────────────────────────────────────────────
 django-cors-headers>=4.9.0,<5.0
