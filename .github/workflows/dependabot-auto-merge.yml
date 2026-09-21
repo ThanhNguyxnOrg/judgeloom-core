@@ -80,16 +80,17 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
+          BODY=$(printf "🤖 Verified and auto-merged by ThanhNguyxnAgent\n\nCo-authored-by: ThanhNguyxnAgent[bot] <4125740+thanhnguyxnagent[bot]@users.noreply.github.com>\nSigned-off-by: ThanhNguyxnAgent[bot] <4125740+thanhnguyxnagent[bot]@users.noreply.github.com>")
           # --auto requires either a pending check or that no checks are required.
           # If --auto is unsupported (no required checks), fall back to a direct merge.
-          if ! gh pr merge --squash --delete-branch --auto "$PR_URL" 2>err.log; then
+          if ! gh pr merge --squash --delete-branch --auto --body "$BODY" "$PR_URL" 2>err.log; then
             cat err.log
             echo "Falling back to direct squash merge after waiting for checks..."
             for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
               state=$(gh pr view "$PR_URL" --json mergeStateStatus --jq .mergeStateStatus)
               echo "Attempt $i: mergeStateStatus=$state"
               if [ "$state" = "CLEAN" ] || [ "$state" = "UNSTABLE" ] || [ "$state" = "HAS_HOOKS" ]; then
-                gh pr merge --squash --delete-branch "$PR_URL" && exit 0
+                gh pr merge --squash --delete-branch --body "$BODY" "$PR_URL" && exit 0
               fi
               sleep 30
             done
