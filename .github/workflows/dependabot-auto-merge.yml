@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # JudgeLoom — Dependabot Auto-merge
 # =============================================================================
 # Auto-enables GitHub's native auto-merge on Dependabot PRs that are "safe"
@@ -80,7 +80,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          BODY=$(printf "🤖 Verified and auto-merged by ThanhNguyxnAgent\n\nCo-authored-by: ThanhNguyxnAgent[bot] <4125740+thanhnguyxnagent[bot]@users.noreply.github.com>\nSigned-off-by: ThanhNguyxnAgent[bot] <4125740+thanhnguyxnagent[bot]@users.noreply.github.com>")
+          BODY=$(printf "🤖 Verified and auto-merged by ThanhNguyxnAgent\n\nCo-authored-by: ThanhNguyxnAgent[bot] <296222857+thanhnguyxnagent[bot]@users.noreply.github.com>\nSigned-off-by: ThanhNguyxnAgent[bot] <296222857+thanhnguyxnagent[bot]@users.noreply.github.com>")
           # --auto requires either a pending check or that no checks are required.
           # If --auto is unsupported (no required checks), fall back to a direct merge.
           if ! gh pr merge --squash --delete-branch --auto --body "$BODY" "$PR_URL" 2>err.log; then
@@ -106,3 +106,4 @@ jobs:
           gh pr edit --add-label "major-update,needs-review" "$PR_URL"
           gh pr comment "$PR_URL" \
             --body "🛑 Held for manual review: ${{ steps.decide.outputs.reason }}"
+
