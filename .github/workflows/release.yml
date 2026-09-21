@@ -45,6 +45,13 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Generate GitHub App Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -54,3 +61,5 @@ jobs:
           prerelease: ${{ steps.prerelease.outputs.value }}
           draft: false
           fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
