@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- JudgeLoom mark: double chevron (judging speed) + loom thread (weaving verdicts) -->
+  <defs>
+    <linearGradient id="jlChev" x1="40" y1="38" x2="92" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#818CF8"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+  </defs>
+  <path d="M18 62 C 42 52, 82 72, 106 58" stroke="#FBBF24" stroke-width="6" stroke-linecap="round"/>
+  <path d="M40 38 L68 60 L40 82" stroke="url(#jlChev)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M64 38 L92 60 L64 82" stroke="url(#jlChev)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
