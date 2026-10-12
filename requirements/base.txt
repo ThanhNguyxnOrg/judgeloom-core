@@ -5,7 +5,9 @@
 # =============================================================================
 
 # ─── Framework ──────────────────────────────────────────────────────────────
-Django>=6.1.2,<6.2
+# NOTE: Django capped <6.1 because django-celery-beat 2.9.0 (latest) requires
+# Django<6.1. Re-widen once upstream beat supports Django 6.1+.
+Django>=6.0,<6.1
 django-environ>=0.14.0
 
 # ─── API ────────────────────────────────────────────────────────────────────
