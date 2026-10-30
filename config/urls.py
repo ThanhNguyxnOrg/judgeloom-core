@@ -14,6 +14,7 @@ from django.urls import include, path
 from ninja import NinjaAPI
 
 from core.exceptions import configure_api_exception_handlers
+from core.health import router as health_router
 
 # ─── API ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ api.add_router("/content/", "apps.content.api.router", tags=["content"])
 api.add_router("/tickets/", "apps.tickets.api.router", tags=["tickets"])
 api.add_router("/ratings/", "apps.ratings.api.router", tags=["ratings"])
 api.add_router("/tags/", "apps.tags.api.router", tags=["tags"])
-api.add_router("/health/", "core.health", tags=["health"])
+api.add_router("/health/", health_router, tags=["health"])
 
 
 # ─── URL Patterns ──────────────────────────────────────────────────────────

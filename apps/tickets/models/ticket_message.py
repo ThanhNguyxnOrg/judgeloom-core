@@ -27,6 +27,6 @@ class TicketMessage(TimestampedModel):
         verbose_name_plural = "Ticket messages"
         ordering = ("created_at",)
         indexes = [
-            models.Index(fields=["ticket", "created_at"], name="tickets_message_ticket_created_idx"),
+            models.Index(fields=["ticket", "created_at"], name="ticket_msg_ticket_created_idx"),
             models.Index(fields=["author"], name="tickets_message_author_idx"),
         ]
