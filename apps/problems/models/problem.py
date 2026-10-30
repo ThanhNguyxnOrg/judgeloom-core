@@ -86,14 +86,17 @@ class Problem(SluggedModel):
         if self.partial_score:
             problem_types.append(ProblemType.MULTI_STEP)
 
-        test_data = getattr(self, "test_data", None)
-        if test_data is not None:
-            if test_data.interactive_judge:
+        package = self.packages.filter(is_active=True).first()
+        if package is not None:
+            manifest = package.manifest or {}
+            checker = manifest.get("checker") or {}
+            checker_type = checker.get("type") if isinstance(checker, dict) else None
+            if checker_type == "interactive":
                 problem_types.append(ProblemType.INTERACTIVE)
-            if test_data.output_prefix > 0:
-                problem_types.append(ProblemType.OUTPUT_ONLY)
-            if test_data.checker == "special_judge":
+            if checker_type == "communication":
                 problem_types.append(ProblemType.COMMUNICATION)
+            if int(manifest.get("output_prefix", 0) or 0) > 0:
+                problem_types.append(ProblemType.OUTPUT_ONLY)
 
         return sorted(set(problem_types))
 
