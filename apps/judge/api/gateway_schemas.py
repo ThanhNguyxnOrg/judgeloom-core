@@ -29,3 +29,11 @@ class JudgeRegisterOut(Schema):
 class JudgeHeartbeatOut(Schema):
     ok: bool
     next_heartbeat: int
+
+
+class JudgeClaimIn(Schema):
+    """Worker request for one queued job."""
+
+    languages: list[str] = Field(default_factory=list)
+    max_jobs: int = 1
+    wait_seconds: int = 0

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from django.http import HttpResponse
 from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError
 
 from apps.judge.api.gateway_schemas import (
+    JudgeClaimIn,
     JudgeHeartbeatIn,
     JudgeHeartbeatOut,
     JudgeRegisterIn,
@@ -14,6 +16,7 @@ from apps.judge.api.gateway_schemas import (
 )
 from apps.judge.auth import JudgeTokenAuth
 from apps.judge.models import Judge
+from apps.judge.services.judge_gateway_service import JudgeGatewayService
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -74,3 +77,14 @@ def heartbeat(request: HttpRequest, payload: JudgeHeartbeatIn) -> JudgeHeartbeat
         ]
     )
     return JudgeHeartbeatOut(ok=True, next_heartbeat=HEARTBEAT_INTERVAL_SECONDS)
+
+
+@router.post("/jobs/claim", auth=JudgeTokenAuth())
+def claim_job(request: HttpRequest, payload: JudgeClaimIn) -> Any:
+    """Claim one queued job for the authenticated worker."""
+
+    judge = _request_judge(request)
+    job = JudgeGatewayService.claim_job(judge, payload.languages, payload.max_jobs)
+    if job is None:
+        return HttpResponse(status=204)
+    return JudgeGatewayService.claim_payload(job)
