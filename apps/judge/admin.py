@@ -9,11 +9,20 @@ from apps.judge.models import Judge, Language, RuntimeVersion
 class JudgeAdmin(admin.ModelAdmin):
     """Admin configuration for judge worker records."""
 
-    list_display = ("name", "online", "is_blocked", "ping", "load", "updated_at")
-    list_filter = ("online", "is_blocked", "created_at")
+    list_display = ("name", "online", "is_blocked", "protocol_version", "current_load", "last_seen", "updated_at")
+    list_filter = ("online", "is_blocked", "protocol_version", "created_at")
     search_fields = ("name", "hostname", "description")
     filter_horizontal = ("problems", "runtimes")
-    readonly_fields = ("created_at", "updated_at", "start_time")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "start_time",
+        "last_seen",
+        "protocol_version",
+        "capabilities",
+        "current_load",
+        "token_prefix",
+    )
 
 
 @admin.register(Language)
