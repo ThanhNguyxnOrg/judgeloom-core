@@ -17,6 +17,7 @@ from apps.judge.models import JudgeJob, JudgeJobStatus
 from apps.judge.services.judge_gateway_service import JudgeGatewayService
 from apps.problems.services.package_service import PackageImportService
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.models import SubmissionTestCase
 from apps.submissions.services import SubmissionService
 from tests.factories import JudgeFactory
 
@@ -264,3 +265,157 @@ class TestLeaseExpiry:
             results = list(pool.map(claim, judges))
 
         assert sum(result is not None for result in results) == 1
+
+
+def make_result_judge(name: str = "result-judge"):
+    return JudgeFactory(
+        name=name,
+        token_hash=hashlib.sha256(b"secret").hexdigest(),
+        online=True,
+    )
+
+
+def post_json(path: str, payload: dict, token: str = "secret"):
+    return Client().post(
+        path,
+        data=json.dumps(payload),
+        content_type="application/json",
+        **auth_header(token),
+    )
+
+
+@pytest.mark.django_db
+class TestResultRoutes:
+    def test_start_marks_job_running(self, user, problem, language):
+        submission = make_submission(user, problem, language)
+        judge = make_result_judge()
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+
+        response = post_json(f"/api/v1/judge/jobs/{job.pk}/start", {})
+
+        assert response.status_code == 200
+        job.refresh_from_db()
+        submission.refresh_from_db()
+        assert job.status == JudgeJobStatus.RUNNING
+        assert submission.status == SubmissionStatus.JUDGING
+
+    def test_cases_are_idempotent(self, user, problem, language):
+        submission = make_submission(user, problem, language)
+        judge = make_result_judge("result-idempotent")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+        case = {
+            "case_number": 1,
+            "status": SubmissionResult.AC,
+            "time_used": 0.1,
+            "memory_used": 1024,
+            "points": 100,
+            "total_points": 100,
+        }
+
+        first = post_json(f"/api/v1/judge/jobs/{job.pk}/cases", {"cases": [case]})
+        second = post_json(f"/api/v1/judge/jobs/{job.pk}/cases", {"cases": [case]})
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert SubmissionTestCase.objects.filter(submission=submission).count() == 1
+        submission.refresh_from_db()
+        assert submission.case_total == 1
+        assert submission.case_passed == 1
+        assert submission.current_testcase == 1
+
+    def test_finish_uses_server_score_and_ignores_worker_points(self, user, problem, language):
+        submission = make_submission(user, problem, language)
+        judge = make_result_judge("result-finish")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+        post_json(f"/api/v1/judge/jobs/{job.pk}/start", {})
+        post_json(
+            f"/api/v1/judge/jobs/{job.pk}/cases",
+            {
+                "cases": [
+                    {
+                        "case_number": 1,
+                        "status": SubmissionResult.AC,
+                        "time_used": 0.1,
+                        "memory_used": 1024,
+                        "points": 100,
+                        "total_points": 100,
+                    }
+                ]
+            },
+        )
+
+        response = post_json(
+            f"/api/v1/judge/jobs/{job.pk}/finish",
+            {"points": 1000, "time_used": 99, "memory_used": 999999},
+        )
+
+        assert response.status_code == 200
+        submission.refresh_from_db()
+        job.refresh_from_db()
+        assert submission.status == SubmissionStatus.COMPLETED
+        assert submission.result == SubmissionResult.AC
+        assert submission.points == 100.0
+        assert submission.time_used == 0.1
+        assert submission.memory_used == 1024
+        assert job.status == JudgeJobStatus.SUCCEEDED
+
+    def test_duplicate_finish_is_idempotent(self, user, problem, language):
+        submission = make_submission(user, problem, language)
+        judge = make_result_judge("result-duplicate-finish")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+        post_json(
+            f"/api/v1/judge/jobs/{job.pk}/cases",
+            {
+                "cases": [
+                    {
+                        "case_number": 1,
+                        "status": SubmissionResult.AC,
+                        "points": 100,
+                        "total_points": 100,
+                    }
+                ]
+            },
+        )
+
+        first = post_json(f"/api/v1/judge/jobs/{job.pk}/finish", {})
+        second = post_json(f"/api/v1/judge/jobs/{job.pk}/finish", {})
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        submission.refresh_from_db()
+        assert submission.points == 100.0
+        assert SubmissionTestCase.objects.filter(submission=submission).count() == 1
+
+    def test_wrong_judge_cannot_update_job(self, user, problem, language):
+        make_submission(user, problem, language)
+        judge_a = make_result_judge("result-owner")
+        JudgeFactory(
+            name="result-other",
+            token_hash=hashlib.sha256(b"other-secret").hexdigest(),
+            online=True,
+        )
+        job = JudgeGatewayService.claim_job(judge_a, ["PY3"])
+
+        response = post_json(
+            f"/api/v1/judge/jobs/{job.pk}/cases",
+            {"cases": [{"case_number": 1, "status": SubmissionResult.AC, "points": 100, "total_points": 100}]},
+            token="other-secret",
+        )
+
+        assert response.status_code == 403
+
+    def test_fail_sets_compile_error(self, user, problem, language):
+        submission = make_submission(user, problem, language)
+        judge = make_result_judge("result-fail")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+
+        response = post_json(
+            f"/api/v1/judge/jobs/{job.pk}/fail",
+            {"status": "error", "result": SubmissionResult.CE, "error_message": "bad compile"},
+        )
+
+        assert response.status_code == 200
+        submission.refresh_from_db()
+        assert submission.status == SubmissionStatus.ERROR
+        assert submission.result == SubmissionResult.CE
+        assert submission.error_message == "bad compile"

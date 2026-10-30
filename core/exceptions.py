@@ -139,6 +139,14 @@ class JudgeUnavailableError(SubmissionError):
     status_code = 503
 
 
+class JudgeJobConflictError(JudgeLoomError):
+    """Raised when a judge job is stale, expired, or no longer active."""
+
+    message = "The judge job is no longer available."
+    code = "judge_job_conflict"
+    status_code = 409
+
+
 # ─── Contest Errors ────────────────────────────────────────────────────────
 
 
