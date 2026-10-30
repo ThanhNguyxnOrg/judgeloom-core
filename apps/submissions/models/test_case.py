@@ -24,6 +24,7 @@ class SubmissionTestCase(TimestampedModel):
     memory_used = models.PositiveIntegerField(default=0)
     points = models.FloatField(default=0.0)
     total_points = models.FloatField(default=0.0)
+    group = models.CharField(max_length=32, blank=True, default="default")
     feedback = models.TextField(blank=True)
     output = models.TextField(blank=True)
     batch_number = models.PositiveIntegerField(null=True, blank=True)

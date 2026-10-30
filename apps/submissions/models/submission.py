@@ -17,6 +17,7 @@ class Submission(TimestampedModel):
     points = models.FloatField(default=0.0)
     result = models.CharField(max_length=8, choices=SubmissionResult.choices, null=True, blank=True)
     status = models.CharField(max_length=8, choices=SubmissionStatus.choices, default=SubmissionStatus.QUEUED)
+    subtask_scores = models.JSONField(default=dict, blank=True)
     case_total = models.PositiveIntegerField(default=0)
     case_passed = models.PositiveIntegerField(default=0)
     current_testcase = models.PositiveIntegerField(default=0)
