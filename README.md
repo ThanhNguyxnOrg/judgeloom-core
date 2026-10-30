@@ -8,7 +8,7 @@
   [![CI](https://img.shields.io/github/actions/workflow/status/ThanhNguyxnOrg/judgeloom-core/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/ThanhNguyxnOrg/judgeloom-core/actions/workflows/ci.yml)
   [![CodeQL](https://img.shields.io/github/actions/workflow/status/ThanhNguyxnOrg/judgeloom-core/codeql.yml?branch=master&style=for-the-badge&logo=github&label=CodeQL)](https://github.com/ThanhNguyxnOrg/judgeloom-core/actions/workflows/codeql.yml)
   [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-  [![Django Version](https://img.shields.io/badge/django-5.1%2B-092E20.svg?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+  [![Django Version](https://img.shields.io/badge/django-5.2%2B-092E20.svg?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
   [![PostgreSQL](https://img.shields.io/badge/postgres-16%2B-336791.svg?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
   [![Redis](https://img.shields.io/badge/redis-7%2B-DC382D.svg?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
   [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg?style=for-the-badge&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
