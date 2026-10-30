@@ -13,6 +13,7 @@ import os
 os.environ.setdefault("DJANGO_SECRET_KEY", "testing-secret-key-not-for-production")
 
 from .base import *  # noqa: F403
+from .base import env
 
 # ─── Core ───────────────────────────────────────────────────────────────────
 
@@ -25,12 +26,15 @@ ALLOWED_HOSTS = ["*"]
 
 # ─── Database ──────────────────────────────────────────────────────────────
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
-    },
-}
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {"default": env.db("DATABASE_URL")}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        },
+    }
 
 
 # ─── Cache ─────────────────────────────────────────────────────────────────
