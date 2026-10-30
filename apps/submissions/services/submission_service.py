@@ -411,14 +411,15 @@ class SubmissionService:
             raise SubmissionError("Submission rate limit exceeded. Try again shortly.")
 
     @classmethod
-    def _publish_event(cls, event_type: str, payload: dict[str, Any]) -> None:
+    def _publish_event(cls, event_type: str, payload: dict[str, Any], *, group: str | None = None) -> None:
         """Publish a domain event through the configured event bus.
 
         Args:
             event_type: Event type constant (e.g. ``SUBMISSION_CREATED``).
             payload: Event payload data.
+            group: Optional explicit WebSocket group.
         """
-        publish_sync(Event(type=event_type, payload=payload))
+        publish_sync(Event(type=event_type, payload=payload), group=group)
 
     @classmethod
     def _broadcast(cls, submission_id: int, payload: dict[str, Any]) -> None:

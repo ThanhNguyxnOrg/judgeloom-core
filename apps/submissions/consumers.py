@@ -58,10 +58,25 @@ class SubmissionConsumer(AsyncJsonWebSocketConsumer):
             await self.send_json({"type": "pong"})
 
     async def broadcast(self, event: dict[str, Any]) -> None:
-        """Forward channel-layer events to the WebSocket client.
+        """Forward legacy channel-layer events to the WebSocket client.
 
         Args:
             event: Channel event payload containing update data.
         """
         payload = event.get("payload", {})
         await self.send_json(payload)
+
+    async def submission_status(self, event: dict[str, Any]) -> None:
+        """Forward a submission status event."""
+
+        await self.send_json(event.get("payload", {}))
+
+    async def submission_case(self, event: dict[str, Any]) -> None:
+        """Forward a per-test-case event."""
+
+        await self.send_json(event.get("payload", {}))
+
+    async def submission_finished(self, event: dict[str, Any]) -> None:
+        """Forward a final submission event."""
+
+        await self.send_json(event.get("payload", {}))

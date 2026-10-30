@@ -85,7 +85,7 @@ def _derive_channel(event: Event) -> str:
     return namespace
 
 
-async def publish(event: Event, *, channel: str | None = None) -> None:
+async def publish(event: Event, *, group: str | None = None) -> None:
     """Publish an event to a Django Channels group.
 
     All consumers subscribed to the named group will receive the event.
@@ -94,39 +94,44 @@ async def publish(event: Event, *, channel: str | None = None) -> None:
 
     Args:
         event: The event to broadcast.
-        channel: Optional explicit channel group name.  When omitted the
-            channel is derived from the event type namespace.
+        group: Explicit channel group name. When omitted, the legacy
+            type-derived group is used for backward compatibility.
     """
     from channels.layers import get_channel_layer
 
-    resolved_channel = channel or _derive_channel(event)
+    resolved_group = group or _derive_channel(event)
+    if group is None:
+        logger.warning("Event published without explicit group; derived '%s' for %s", resolved_group, event.type)
+
     layer = get_channel_layer()
     if layer is None:
         logger.warning("No channel layer configured — event dropped: %s", event.type)
         return
 
     await layer.group_send(
-        resolved_channel,
+        resolved_group,
         {
-            "type": "event.broadcast",
-            "data": event.serialize(),
+            "type": event.type,
+            "payload": event.payload,
+            "timestamp": event.timestamp,
+            "source": event.source,
         },
     )
-    logger.debug("Published %s to channel '%s'", event.type, resolved_channel)
+    logger.debug("Published %s to group '%s'", event.type, resolved_group)
 
 
-def publish_sync(event: Event, *, channel: str | None = None) -> None:
+def publish_sync(event: Event, *, group: str | None = None) -> None:
     """Synchronous wrapper around ``publish()`` for use in Django views / services.
 
     Uses ``asgiref.sync.async_to_sync`` to bridge the sync/async boundary.
 
     Args:
         event: The event to broadcast.
-        channel: Optional explicit channel group name.
+        group: Explicit channel group name.
     """
     from asgiref.sync import async_to_sync
 
-    async_to_sync(publish)(event, channel=channel)
+    async_to_sync(publish)(event, group=group)
 
 
 # ─── Event Type Constants ─────────────────────────────────────────────────
@@ -136,6 +141,9 @@ SUBMISSION_CREATED = "submission.created"
 SUBMISSION_JUDGING = "submission.judging"
 SUBMISSION_JUDGED = "submission.judged"
 SUBMISSION_REJUDGED = "submission.rejudged"
+SUBMISSION_STATUS = "submission.status"
+SUBMISSION_CASE = "submission.case"
+SUBMISSION_FINISHED = "submission.finished"
 
 CONTEST_STARTED = "contest.started"
 CONTEST_ENDED = "contest.ended"
