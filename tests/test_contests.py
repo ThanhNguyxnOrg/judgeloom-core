@@ -13,6 +13,7 @@ import pytest
 from django.utils import timezone
 
 from apps.contests.constants import ContestFormat, ParticipationStatus
+from apps.contests.services.contest_lifecycle_service import ContestLifecycleService
 from tests.factories import ContestFactory
 
 
@@ -78,3 +79,41 @@ class TestContestParticipation:
         """__str__ includes user and contest info."""
         result = str(participation)
         assert "@" in result
+
+
+@pytest.mark.django_db
+class TestContestLifecycleTick:
+    def test_tick_starts_and_ends_due_contests_idempotently(self):
+        now = timezone.now()
+        active = ContestFactory(
+            key="tick-active",
+            start_time=now - timedelta(hours=1),
+            end_time=now + timedelta(hours=1),
+        )
+        finished = ContestFactory(
+            key="tick-finished",
+            start_time=now - timedelta(hours=2),
+            end_time=now - timedelta(hours=1),
+        )
+        future = ContestFactory(
+            key="tick-future",
+            start_time=now + timedelta(hours=1),
+            end_time=now + timedelta(hours=2),
+        )
+
+        first = ContestLifecycleService.tick_contests()
+        assert first["started"] == 2
+        assert first["ended"] == 1
+
+        active.refresh_from_db()
+        finished.refresh_from_db()
+        future.refresh_from_db()
+        assert active.started_at is not None
+        assert active.ended_at is None
+        assert finished.started_at is not None
+        assert finished.ended_at is not None
+        assert future.started_at is None
+        assert future.ended_at is None
+
+        second = ContestLifecycleService.tick_contests()
+        assert second == {"started": 0, "ended": 0}

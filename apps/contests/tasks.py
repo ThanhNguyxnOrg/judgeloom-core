@@ -43,6 +43,19 @@ def schedule_contest_start(self: object, contest_id: int) -> None:
 
 @shared_task(
     bind=True,
+    name="contests.tick",
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    max_retries=3,
+)
+def tick_contests(self: object) -> dict[str, int]:
+    """Start and end contests whose schedule has elapsed."""
+
+    return ContestLifecycleService.tick_contests()
+
+
+@shared_task(
+    bind=True,
     name="contests.schedule_contest_end",
     autoretry_for=(Exception,),
     retry_backoff=True,

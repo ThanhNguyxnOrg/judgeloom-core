@@ -194,6 +194,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "submissions.cleanup_runs",
         "schedule": crontab(minute="*/5"),
     },
+    "contests-tick": {
+        "task": "contests.tick",
+        "schedule": crontab(minute="*/1"),
+    },
 }
 
 

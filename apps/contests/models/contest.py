@@ -54,6 +54,8 @@ class Contest(SluggedModel):
 
     is_visible = models.BooleanField(default=True)
     show_short_display = models.BooleanField(default=False)
+    started_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "contests_contest"
