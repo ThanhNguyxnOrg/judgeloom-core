@@ -77,6 +77,16 @@ Import test data with the management command (packages are immutable and activat
 python manage.py import_problem_package aplusb path/to/aplusb.zip
 ```
 
+Run a pull-based judge worker with the Compose stack:
+
+```bash
+python manage.py create_judge_token judge-worker-1
+docker compose up -d postgres redis web go-judge judge-worker
+```
+
+See [`docs/judge/worker.md`](docs/judge/worker.md) for worker configuration,
+supported languages, and sandbox troubleshooting.
+
 ## 🚀 Quick Start
 
 ### 📋 Prerequisites

@@ -203,8 +203,28 @@ Errors use the shared JSON shape `{"error": "...", "code": "..."}`.
 - Package hashes prevent grading against stale or substituted test data.
 - The real worker must run code in a sandbox with CPU, memory, filesystem, and network limits; the control plane never executes user code.
 
+## go-judge status mapping (worker)
+
+The Go worker maps go-judge results to control-plane verdicts:
+
+| go-judge | Verdict |
+|---|---|
+| `Accepted` | `AC` |
+| `TimeLimitExceeded` | `TLE` |
+| `MemoryLimitExceeded` | `MLE` |
+| `OutputLimitExceeded` | `OLE` |
+| `NonZeroExitStatus` / `Signalled` | `RTE` |
+| `DangerousSyscall` / `InternalError` | `IE` |
+
+Testlib checker exit codes: `0` AC, `1` WA, `2` PE, `3` IE, `5` PT (points
+parsed from the checker's `points` message). Compile failures are reported as
+`CE`; they are never executed as cases.
+
 ## Reference implementation and tests
 
 - Fake-worker end-to-end test: `tests/test_judge_e2e.py`
 - Gateway/auth/lease tests: `tests/test_judge_gateway.py`
 - Server scoring tests: `tests/test_judge_core.py`
+- Go worker: `worker/`
+- Worker runbook: `docs/judge/worker.md`
+- Sandbox integration harness: `worker/scripts/test-sandbox.sh`
