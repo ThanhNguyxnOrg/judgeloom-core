@@ -32,8 +32,8 @@ class Command(BaseCommand):
         if judge is not None and not options["rotate"]:
             raise CommandError(f"Judge '{name}' already exists; use --rotate.")
         if judge is None:
-            judge = Judge(name=name, auth_key=token)
-        judge.auth_key = token
+            judge = Judge(name=name)
+        judge.auth_key = ""
         judge.token_hash = digest
         judge.token_prefix = token[:8]
         judge.capabilities = judge.capabilities or {}

@@ -15,7 +15,7 @@ class Judge(TimestampedModel):
     """Represents a remote judge worker node."""
 
     name = models.CharField(max_length=64, unique=True)
-    auth_key = models.CharField(max_length=128)
+    auth_key = models.CharField(max_length=128, blank=True, default="")
     token_hash = models.CharField(max_length=64, unique=True, null=True, blank=True)
     token_prefix = models.CharField(max_length=8, blank=True, default="")
     protocol_version = models.PositiveIntegerField(default=1)

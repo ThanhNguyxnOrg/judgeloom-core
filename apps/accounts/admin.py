@@ -33,8 +33,6 @@ class UserAdmin(DjangoUserAdmin):
                     "performance_points",
                     "problem_count",
                     "is_totp_enabled",
-                    "totp_key",
-                    "api_token",
                     "mfa_enabled",
                     "notes",
                     "is_banned",

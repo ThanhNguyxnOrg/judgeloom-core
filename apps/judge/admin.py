@@ -12,6 +12,7 @@ class JudgeAdmin(admin.ModelAdmin):
     list_display = ("name", "online", "is_blocked", "protocol_version", "current_load", "last_seen", "updated_at")
     list_filter = ("online", "is_blocked", "protocol_version", "created_at")
     search_fields = ("name", "hostname", "description")
+    exclude = ("auth_key", "token_hash")
     filter_horizontal = ("problems", "runtimes")
     readonly_fields = (
         "created_at",

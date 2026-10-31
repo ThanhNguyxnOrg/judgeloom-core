@@ -58,6 +58,7 @@ class User(AbstractUser, TimestampedModel):
     notes = models.TextField(blank=True, default="")
     ban_reason = models.TextField(blank=True, default="")
     is_banned = models.BooleanField(default=False)
+    token_version = models.PositiveIntegerField(default=0)
 
     _RATING_CLASSES: Final[list[tuple[int, str]]] = [
         (3000, "user-legendary-grandmaster"),

@@ -35,8 +35,8 @@ class JudgeHandler:
         Returns:
             True when connection is accepted.
         """
-        judge = Judge.objects.filter(name=judge_name).first()
-        if judge is None:
+        judge = Judge.objects.filter(name=judge_name, is_blocked=False).first()
+        if judge is None or not judge.auth_key:
             return False
         if not hmac.compare_digest(judge.auth_key, auth_key):
             return False

@@ -56,6 +56,9 @@ class JudgeLoomAuth(HttpBearer):
         except (jwt.InvalidTokenError, jwt.ExpiredSignatureError):
             return None
 
+        if payload.get("type") not in (None, "access"):
+            return None
+
         # Auth service uses "sub" for user_id. Fallback to "user_id" for old tokens.
         user_id = payload.get("sub") or payload.get("user_id")
         if not user_id:
@@ -64,6 +67,8 @@ class JudgeLoomAuth(HttpBearer):
         try:
             user = UserModel.objects.get(pk=user_id, is_active=True, is_banned=False)
         except UserModel.DoesNotExist:
+            return None
+        if int(payload.get("ver", 0)) != int(getattr(user, "token_version", 0)):
             return None
 
         return user  # type: ignore[return-value]

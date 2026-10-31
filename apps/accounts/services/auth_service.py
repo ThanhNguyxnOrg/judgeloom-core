@@ -19,8 +19,9 @@ if TYPE_CHECKING:
 class AuthService:
     """Authentication and account security operations."""
 
-    ACCESS_TOKEN_HOURS: int = 24
+    ACCESS_TOKEN_HOURS: int = 1
     JWT_ALGORITHM: str = "HS256"
+    REFRESH_MAX_AGE_DAYS: int = 30
 
     @staticmethod
     def _user_model() -> type[User]:
@@ -97,21 +98,25 @@ class AuthService:
         return user
 
     @classmethod
-    def generate_jwt_token(cls, user: User) -> str:
+    def generate_jwt_token(cls, user: User, auth_time: int | None = None) -> str:
         """Generate an access JWT token for a user.
 
         Args:
             user: User instance.
+            auth_time: Original authentication timestamp to preserve across refreshes.
 
         Returns:
             Signed JWT token string.
         """
 
         now = datetime.now(UTC)
+        issued_at = auth_time if auth_time is not None else int(now.timestamp())
         payload: dict[str, str | int] = {
             "sub": str(user.pk),
             "username": user.username,
             "type": "access",
+            "ver": int(getattr(user, "token_version", 0)),
+            "auth_time": issued_at,
             "iat": int(now.timestamp()),
             "exp": int((now + timedelta(hours=cls.ACCESS_TOKEN_HOURS)).timestamp()),
         }
@@ -148,8 +153,16 @@ class AuthService:
             raise ValidationError("User not found for token.")
         if user.is_banned or not user.is_active:
             raise ValidationError("User cannot refresh token.")
+        if int(payload.get("ver", 0)) != int(getattr(user, "token_version", 0)):
+            raise ValidationError("Token has been revoked.")
 
-        return cls.generate_jwt_token(user)
+        issued_at = payload.get("auth_time", payload.get("iat"))
+        if not isinstance(issued_at, int):
+            raise ValidationError("Invalid token session.")
+        if datetime.now(UTC).timestamp() - issued_at > cls.REFRESH_MAX_AGE_DAYS * 86400:
+            raise ValidationError("Session expired; log in again.")
+
+        return cls.generate_jwt_token(user, auth_time=issued_at)
 
     @staticmethod
     def change_password(user: User, old_password: str, new_password: str) -> None:
@@ -170,7 +183,15 @@ class AuthService:
             raise ValidationError("New password must be at least 8 characters.")
 
         user.set_password(new_password)
-        user.save(update_fields=["password", "updated_at"])
+        user.token_version += 1
+        user.save(update_fields=["password", "token_version", "updated_at"])
+
+    @staticmethod
+    def revoke_tokens(user: User) -> None:
+        """Invalidate all outstanding JWTs for the user."""
+
+        user.token_version += 1
+        user.save(update_fields=["token_version", "updated_at"])
 
     @staticmethod
     def generate_api_token(user: User) -> str:
@@ -199,7 +220,8 @@ class AuthService:
 
         user.is_banned = True
         user.ban_reason = reason.strip()
-        user.save(update_fields=["is_banned", "ban_reason", "updated_at"])
+        user.token_version += 1
+        user.save(update_fields=["is_banned", "ban_reason", "token_version", "updated_at"])
 
     @staticmethod
     def unban_user(user: User) -> None:

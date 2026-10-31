@@ -162,7 +162,7 @@ class JudgeFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("name",)
 
     name = factory.Sequence(lambda n: f"judge-{n}")
-    auth_key = factory.Sequence(lambda n: f"authkey-{n:032d}")
+    auth_key = ""
     online = True
     is_blocked = False
 

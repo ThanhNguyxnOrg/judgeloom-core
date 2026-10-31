@@ -148,6 +148,15 @@ def update_me(request: HttpRequest, payload: UserUpdateIn) -> UserProfileOut:
     return _user_profile_out(updated)
 
 
+@router.post("/logout", response=dict[str, str], auth=JudgeLoomAuth())
+def logout(request: HttpRequest) -> dict[str, str]:
+    """Revoke all outstanding access tokens for the authenticated user."""
+
+    user = _request_user(request)
+    AuthService.revoke_tokens(user)
+    return {"detail": "Logged out."}
+
+
 @router.get("/{username}", response=UserPublicOut)
 def public_profile(request: HttpRequest, username: str) -> UserPublicOut:
     """Return public profile for a username."""
