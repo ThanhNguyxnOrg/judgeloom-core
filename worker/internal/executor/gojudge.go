@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,6 +42,44 @@ type RunResult struct {
 	Stderr     []byte
 	FileIDs    map[string]string
 	Error      string
+}
+
+type VersionInfo struct {
+	BuildVersion string `json:"buildVersion"`
+	GoVersion    string `json:"goVersion"`
+	OS           string `json:"os"`
+	Platform     string `json:"platform"`
+}
+
+func (g *GoJudge) Version(ctx context.Context) (VersionInfo, error) {
+	httpClient := g.Client
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(g.BaseURL, "/")+"/version", nil)
+	if err != nil {
+		return VersionInfo{}, err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return VersionInfo{}, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return VersionInfo{}, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return VersionInfo{}, fmt.Errorf("go-judge version: %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	var info VersionInfo
+	if err := json.Unmarshal(body, &info); err != nil {
+		return VersionInfo{}, fmt.Errorf("decode go-judge version: %w", err)
+	}
+	if info.BuildVersion == "" {
+		return VersionInfo{}, errors.New("go-judge version response is missing buildVersion")
+	}
+	return info, nil
 }
 
 func (g *GoJudge) Run(ctx context.Context, spec RunSpec) (RunResult, error) {

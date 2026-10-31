@@ -27,17 +27,25 @@ func main() {
 		log.Printf("package cache cleanup failed: %v", err)
 	}
 	judge := &executor.GoJudge{BaseURL: cfg.GoJudgeURL}
+	selfTestCtx, cancelSelfTest := context.WithTimeout(context.Background(), 5*time.Second)
+	version, err := judge.Version(selfTestCtx)
+	cancelSelfTest()
+	if err != nil {
+		log.Fatalf("go-judge self-test failed: %v", err)
+	}
+	log.Printf("go-judge self-test passed: build=%s go=%s %s/%s", version.BuildVersion, version.GoVersion, version.OS, version.Platform)
 	jobExecutor := &worker.JobExecutor{
 		Store:  cache,
 		Runner: &runner.Runner{Judge: judge},
 		Judge:  judge,
 	}
 	workerInstance := &worker.Worker{
-		Client:    client,
-		Executor:  jobExecutor,
-		Languages: cfg.Languages,
-		Poll:      cfg.PollInterval,
-		Heartbeat: cfg.Heartbeat,
+		Client:         client,
+		Executor:       jobExecutor,
+		Languages:      cfg.Languages,
+		SandboxVersion: version.BuildVersion,
+		Poll:           cfg.PollInterval,
+		Heartbeat:      cfg.Heartbeat,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

@@ -15,11 +15,12 @@ type Executor interface {
 }
 
 type Worker struct {
-	Client    api.Client
-	Executor  Executor
-	Languages []string
-	Poll      time.Duration
-	Heartbeat time.Duration
+	Client         api.Client
+	Executor       Executor
+	Languages      []string
+	SandboxVersion string
+	Poll           time.Duration
+	Heartbeat      time.Duration
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -36,6 +37,9 @@ func (w *Worker) Run(ctx context.Context) error {
 	capabilities := map[string]any{
 		"languages": w.Languages,
 		"sandbox":   "go-judge",
+	}
+	if w.SandboxVersion != "" {
+		capabilities["go_judge_version"] = w.SandboxVersion
 	}
 	if _, err := w.Client.Register(ctx, api.RegisterRequest{ProtocolVersion: 1, Capabilities: capabilities}); err != nil {
 		return err

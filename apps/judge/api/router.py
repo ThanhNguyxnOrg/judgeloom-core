@@ -99,6 +99,7 @@ def judge_detail(request: HttpRequest, name: str) -> JudgeDetailOut:
         uptime_seconds=int(uptime.total_seconds()) if uptime else None,
         languages=list(judge.runtimes.values_list("key", flat=True)),
         problems=list(judge.problems.values_list("code", flat=True)),
+        capabilities=judge.capabilities or {},
     )
 
 

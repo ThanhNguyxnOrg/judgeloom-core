@@ -2,7 +2,9 @@
 
 The worker is a Linux Go process that pulls leased jobs from the Django control
 plane and executes Python/C++ through go-judge. It never runs user code in the
-Django or Celery process.
+Django or Celery process. At startup it calls go-judge `/version`; an unreachable
+or malformed sandbox fails the worker before registration, and the reported
+`go_judge_version` is stored in the judge capabilities.
 
 ## Prerequisites
 
@@ -69,6 +71,7 @@ points parsed from stderr).
 | 409 on cases/finish | Lease expired, stale package hash, or another judge owns the job |
 | Worker stays idle | No queued job with a claimed language; check package active version |
 | `go-judge` unhealthy | Docker daemon/cgroups; inspect `docker compose logs go-judge` |
+| Worker exits: go-judge self-test failed | Check `GO_JUDGE_URL`, go-judge health, and the `/version` response |
 | C++ compile fails in sandbox | The go-judge image must include `g++`; rebuild `docker/Dockerfile.gojudge` |
 
 ## Tests

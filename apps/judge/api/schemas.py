@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ninja import Schema
 
@@ -29,6 +29,7 @@ class JudgeDetailOut(JudgeOut):
     uptime_seconds: int | None
     languages: list[str]
     problems: list[str]
+    capabilities: dict[str, Any]
 
 
 class LanguageOut(Schema):

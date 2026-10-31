@@ -105,11 +105,12 @@ func testJob() *api.Job {
 func runWorker(t *testing.T, client *fakeClient, executor Executor) {
 	t.Helper()
 	worker := &Worker{
-		Client:    client,
-		Executor:  executor,
-		Languages: []string{"PY3"},
-		Poll:      2 * time.Millisecond,
-		Heartbeat: 2 * time.Millisecond,
+		Client:         client,
+		Executor:       executor,
+		Languages:      []string{"PY3"},
+		SandboxVersion: "v1.13.3",
+		Poll:           2 * time.Millisecond,
+		Heartbeat:      2 * time.Millisecond,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
 	defer cancel()
@@ -131,6 +132,9 @@ func TestWorkerRegistersAndCompletesJob(t *testing.T) {
 	}
 	if languages, ok := client.registeredC["languages"].([]string); !ok || len(languages) != 1 || languages[0] != "PY3" {
 		t.Fatalf("unexpected capabilities: %+v", client.registeredC)
+	}
+	if client.registeredC["go_judge_version"] != "v1.13.3" {
+		t.Fatalf("missing sandbox version: %+v", client.registeredC)
 	}
 	if client.started != 1 || client.caseCalls != 1 || client.finished != 1 || client.failed != 0 {
 		t.Fatalf("unexpected lifecycle counts: %+v", client)

@@ -9,6 +9,37 @@ import (
 	"time"
 )
 
+func TestGoJudgeVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/version" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"buildVersion":"v1.13.3","goVersion":"go1.27.2","os":"linux","platform":"amd64"}`))
+	}))
+	defer server.Close()
+
+	judge := &GoJudge{BaseURL: server.URL, Client: server.Client()}
+	info, err := judge.Version(context.Background())
+	if err != nil {
+		t.Fatalf("Version: %v", err)
+	}
+	if info.BuildVersion != "v1.13.3" || info.GoVersion != "go1.27.2" {
+		t.Fatalf("unexpected version: %+v", info)
+	}
+}
+
+func TestGoJudgeVersionRejectsMissingBuildVersion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"goVersion":"go1.27.2"}`))
+	}))
+	defer server.Close()
+
+	judge := &GoJudge{BaseURL: server.URL, Client: server.Client()}
+	if _, err := judge.Version(context.Background()); err == nil {
+		t.Fatal("expected missing buildVersion to fail")
+	}
+}
+
 func TestGoJudgeRunRequestShapeAndResponse(t *testing.T) {
 	var requestBody map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

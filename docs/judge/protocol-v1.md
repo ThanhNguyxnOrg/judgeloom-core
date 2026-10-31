@@ -27,7 +27,8 @@ Claim is non-blocking in v1. `wait_seconds` is accepted but ignored; a `204` mea
   "protocol_version": 1,
   "capabilities": {
     "languages": ["PY3", "CPP17"],
-    "sandbox": "go-judge"
+    "sandbox": "go-judge",
+    "go_judge_version": "v1.13.3"
   }
 }
 ```
