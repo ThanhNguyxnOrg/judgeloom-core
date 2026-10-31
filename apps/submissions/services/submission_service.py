@@ -76,7 +76,7 @@ class SubmissionService:
             cls._check_rate_limit(user=user)
 
         package = problem.packages.filter(is_active=True).first()
-        if package is None:
+        if package is None and mode != SubmissionMode.RUN:
             raise SubmissionError("No active test data package is available for this problem.")
 
         config = cls._build_job_config(
@@ -243,7 +243,7 @@ class SubmissionService:
         submission = Submission.objects.select_for_update().get(pk=submission.pk)
         job = JudgeJob.objects.select_for_update().filter(submission=submission).first()
         package = job.package if job is not None else submission.problem.packages.filter(is_active=True).first()
-        if package is None:
+        if package is None and submission.mode != SubmissionMode.RUN:
             raise SubmissionError("No active test data package is available for this problem.")
 
         submission.status = SubmissionStatus.QUEUED
@@ -287,6 +287,8 @@ class SubmissionService:
                     language=submission.language,
                     package=package,
                     contest_participation=submission.contest_participation,
+                    mode=submission.mode,
+                    custom_input=submission.custom_input,
                 ),
             )
         job.status = JudgeJobStatus.QUEUED
@@ -302,6 +304,8 @@ class SubmissionService:
             language=submission.language,
             package=package,
             contest_participation=submission.contest_participation,
+            mode=submission.mode,
+            custom_input=submission.custom_input,
         )
         job.save(
             update_fields=[
@@ -475,7 +479,7 @@ class SubmissionService:
     ) -> dict[str, Any]:
         """Snapshot limits and scoring mode for one judge job."""
 
-        manifest = package.manifest or {}
+        manifest = (package.manifest if package is not None else {}) or {}
         config: dict[str, Any] = {
             "time_limit": problem.time_limit,
             "memory_limit": problem.memory_limit,

@@ -377,7 +377,6 @@ class TestSubmissionPrivacyRegressions:
 @pytest.mark.django_db
 class TestRunModeRegressions:
     def test_run_endpoint_creates_custom_job_and_hides_it_from_submission_list(self, user, problem, language):
-        import_package(problem)
         client = Client()
         client.force_login(user)
 
@@ -400,6 +399,7 @@ class TestRunModeRegressions:
         submission = Submission.objects.get(pk=payload["id"])
         assert submission.mode == SubmissionMode.RUN
         assert submission.custom_input == "custom\n"
+        assert submission.judge_job.package is None
         assert submission.judge_job.config["mode"] == "run"
         assert submission.judge_job.config["custom_input"] == "custom\n"
 
@@ -408,7 +408,6 @@ class TestRunModeRegressions:
         assert listing.json()["items"] == []
 
     def test_run_finishes_without_points_or_user_stats(self, user, problem, language):
-        import_package(problem)
         submission = SubmissionService.create_submission(
             user=user,
             problem=problem,

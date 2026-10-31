@@ -48,7 +48,9 @@ def _get_job(job_id: int) -> JudgeJob:
 
 
 def _verify_package(job: JudgeJob, package_sha256: str | None) -> None:
-    if package_sha256 is not None and package_sha256 != job.package.sha256:
+    if not package_sha256:
+        return
+    if job.package is None or package_sha256 != job.package.sha256:
         raise JudgeJobConflictError("The worker reported a stale package hash.")
 
 

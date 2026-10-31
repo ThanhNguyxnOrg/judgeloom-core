@@ -48,7 +48,7 @@ class JudgeResultService:
 
     @staticmethod
     def _manifest_case(job: JudgeJob, case_number: int) -> dict[str, Any]:
-        manifest_cases = (job.package.manifest or {}).get("cases") or []
+        manifest_cases = ((job.package.manifest if job.package is not None else {}) or {}).get("cases") or []
         index = case_number - 1
         if index < 0 or index >= len(manifest_cases):
             return {}
@@ -119,7 +119,7 @@ class JudgeResultService:
             locked.started_at = locked.started_at or timezone.now()
 
         submission = locked.submission
-        manifest_cases = (locked.package.manifest or {}).get("cases") or []
+        manifest_cases = ((locked.package.manifest if locked.package is not None else {}) or {}).get("cases") or []
         max_case = submission.current_testcase
         for case in cases:
             case_number = int(case.get("case_number", 0))

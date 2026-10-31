@@ -178,12 +178,19 @@ class JudgeGatewayService:
             JSON-serializable claim payload.
         """
 
-        manifest = job.package.manifest or {}
+        manifest = (job.package.manifest if job.package is not None else {}) or {}
         config = job.config or {}
         source = getattr(job.submission, "source", None)
         source_code = source.source_code if source is not None else ""
         cases = manifest.get("cases") or []
         groups = manifest.get("groups") or []
+        package_payload = None
+        if job.package is not None:
+            package_payload = {
+                "problem_id": job.package.problem_id,
+                "sha256": job.package.sha256,
+                "url": f"/api/v1/judge/packages/{job.package.problem_id}?sha256={job.package.sha256}",
+            }
 
         return {
             "job_id": job.pk,
@@ -199,11 +206,7 @@ class JudgeGatewayService:
             "contest_points": config.get("contest_points"),
             "mode": config.get("mode", "submit"),
             "custom_input": config.get("custom_input", ""),
-            "package": {
-                "problem_id": job.package.problem_id,
-                "sha256": job.package.sha256,
-                "url": f"/api/v1/judge/packages/{job.package.problem_id}?sha256={job.package.sha256}",
-            },
+            "package": package_payload,
             "checker": manifest.get("checker") or {"type": "exact"},
             "cases": cases,
             "groups": groups,
