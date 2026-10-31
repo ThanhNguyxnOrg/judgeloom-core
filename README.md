@@ -67,6 +67,10 @@ judgeloom-core/
 
 ---
 
+## ⚖️ Judge Protocol
+
+The pull-based judge worker API is documented in [`docs/judge/protocol-v1.md`](docs/judge/protocol-v1.md). It covers registration, heartbeats, leased job claiming, package download, per-case results, and finalization.
+
 ## 🚀 Quick Start
 
 ### 📋 Prerequisites
