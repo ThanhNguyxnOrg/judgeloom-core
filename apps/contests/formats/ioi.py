@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
@@ -24,31 +24,37 @@ class IOIContestFormat(AbstractContestFormat):
     key = "ioi"
     config_schema = IOIFormatConfig
 
-    def update_participation(self, participation: ContestParticipation) -> None:
-        """Recalculate participation with IOI subtask aggregation."""
+    def calculate_participation(
+        self,
+        participation: ContestParticipation,
+        freeze_time: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Calculate participation with IOI subtask aggregation."""
 
         total_score = 0.0
         problem_results: dict[str, dict[str, Any]] = {}
 
         for contest_problem in participation.contest.contest_problems.select_related("problem").all():
-            result = self.get_problem_result(participation, contest_problem)
+            result = self.get_problem_result(participation, contest_problem, freeze_time=freeze_time)
             total_score += float(result.get("points", 0.0))
             problem_results[contest_problem.label] = result
 
-        participation.score = total_score
-        participation.tiebreaker = 0.0
-        participation.cumulative_time = timedelta(0)
-        participation.format_data = {"problems": problem_results}
-        participation.save(update_fields=["score", "tiebreaker", "cumulative_time", "format_data", "updated_at"])
+        return {
+            "score": total_score,
+            "tiebreaker": 0.0,
+            "cumulative_time": timedelta(0),
+            "format_data": {"problems": problem_results},
+        }
 
     def get_problem_result(
         self,
         participation: ContestParticipation,
         contest_problem: ContestProblem,
+        freeze_time: datetime | None = None,
     ) -> dict[str, Any]:
         """Compute IOI best score for each subtask and sum."""
 
-        submissions = list(self._submission_queryset(participation, contest_problem))
+        submissions = list(self._submission_queryset(participation, contest_problem, freeze_time=freeze_time))
         attempts = len(submissions)
         best_subtasks: dict[str, float] = {}
         best_points = 0.0

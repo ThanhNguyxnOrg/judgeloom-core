@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
@@ -24,8 +24,12 @@ class DefaultContestFormat(AbstractContestFormat):
     key = "default"
     config_schema = DefaultFormatConfig
 
-    def update_participation(self, participation: ContestParticipation) -> None:
-        """Recalculate score using best submission per problem."""
+    def calculate_participation(
+        self,
+        participation: ContestParticipation,
+        freeze_time: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Calculate score using best submission per problem."""
 
         total_score = 0.0
         last_ac_seconds = 0.0
@@ -33,7 +37,7 @@ class DefaultContestFormat(AbstractContestFormat):
         problem_results: dict[str, dict[str, Any]] = {}
 
         for contest_problem in participation.contest.contest_problems.select_related("problem").all():
-            result = self.get_problem_result(participation, contest_problem)
+            result = self.get_problem_result(participation, contest_problem, freeze_time=freeze_time)
             total_score += float(result.get("points", 0.0))
             ac_seconds = float(result.get("ac_seconds", 0.0))
             if ac_seconds > 0:
@@ -41,20 +45,22 @@ class DefaultContestFormat(AbstractContestFormat):
                 cumulative_time = timedelta(seconds=last_ac_seconds)
             problem_results[contest_problem.label] = result
 
-        participation.score = total_score
-        participation.tiebreaker = last_ac_seconds
-        participation.cumulative_time = cumulative_time
-        participation.format_data = {"problems": problem_results}
-        participation.save(update_fields=["score", "tiebreaker", "cumulative_time", "format_data", "updated_at"])
+        return {
+            "score": total_score,
+            "tiebreaker": last_ac_seconds,
+            "cumulative_time": cumulative_time,
+            "format_data": {"problems": problem_results},
+        }
 
     def get_problem_result(
         self,
         participation: ContestParticipation,
         contest_problem: ContestProblem,
+        freeze_time: datetime | None = None,
     ) -> dict[str, Any]:
         """Compute best points and attempt information for one problem."""
 
-        submissions = list(self._submission_queryset(participation, contest_problem))
+        submissions = list(self._submission_queryset(participation, contest_problem, freeze_time=freeze_time))
         attempts = len(submissions)
         best_points = 0.0
         ac_seconds = 0.0

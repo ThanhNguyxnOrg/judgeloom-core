@@ -18,6 +18,8 @@ from apps.contests.api.schemas import (
 from apps.contests.models import Contest, ContestParticipation
 from apps.contests.services.contest_service import ContestService
 from apps.contests.services.ranking_service import RankingService
+from apps.judge.models import Language
+from apps.submissions.api.schemas import SubmissionCreateIn, SubmissionDetailOut
 from core.exceptions import ContestAccessDeniedError
 from core.pagination import PaginationParams, paginate_queryset
 from core.permissions import is_authenticated, is_staff
@@ -71,6 +73,25 @@ def create_contest(request, payload: ContestCreateIn) -> dict[str, Any]:
     return _contest_detail_dict(contest)
 
 
+@router.post("/{key}/submissions", response=SubmissionDetailOut)
+def submit_contest_problem(request, key: str, payload: SubmissionCreateIn) -> SubmissionDetailOut:
+    """Submit a solution bound to the caller's contest participation."""
+
+    if not is_authenticated(request):
+        raise ContestAccessDeniedError("Authentication required.")
+
+    contest = get_object_or_404(Contest, key=key)
+    language = get_object_or_404(Language, id=payload.language_id)
+    submission = ContestService.submit_to_contest(
+        user=request.user,
+        contest=contest,
+        problem_code=payload.problem_code,
+        language=language,
+        source_code=payload.source_code,
+    )
+    return _submission_detail_dict(submission)
+
+
 @router.get("/{key}", response=ContestDetailOut)
 def contest_detail(request, key: str) -> dict[str, Any]:
     """Get contest detail by key."""
@@ -110,6 +131,7 @@ def list_contest_problems(request, key: str) -> list[dict[str, Any]]:
             "order": cp.order,
             "points": cp.points,
             "partial_score": cp.partial_score,
+            "max_submissions": cp.max_submissions,
         }
         for cp in contest.contest_problems.select_related("problem").all()
     ]
@@ -146,6 +168,7 @@ def add_contest_problem(request, key: str, payload: ContestProblemIn) -> dict[st
         "order": contest_problem.order,
         "points": contest_problem.points,
         "partial_score": contest_problem.partial_score,
+        "max_submissions": contest_problem.max_submissions,
     }
 
 
@@ -157,7 +180,7 @@ def get_ranking(request, key: str, frozen: bool = True) -> list[dict[str, Any]]:
     if not ContestService.can_see_contest(request.user, contest):
         raise ContestAccessDeniedError("You are not allowed to view this contest.")
 
-    if frozen:
+    if frozen or (contest.is_frozen and not ContestService.is_contest_staff(request.user, contest)):
         return RankingService.get_frozen_ranking(contest)
     return RankingService.get_contest_ranking(contest)
 
@@ -175,14 +198,14 @@ def join_contest(request, key: str, access_code: str | None = None) -> dict[str,
 
 
 @router.post("/{key}/virtual", response=ParticipationOut)
-def start_virtual(request, key: str) -> dict[str, Any]:
+def start_virtual(request, key: str, access_code: str | None = None) -> dict[str, Any]:
     """Start virtual participation for authenticated user."""
 
     if not is_authenticated(request):
         raise ContestAccessDeniedError("Authentication required.")
 
     contest = get_object_or_404(Contest, key=key)
-    participation = ContestService.start_virtual(contest, request.user)
+    participation = ContestService.start_virtual(contest, request.user, access_code=access_code)
     return _participation_dict(participation)
 
 
@@ -227,6 +250,28 @@ def _contest_detail_dict(contest: Contest) -> dict[str, Any]:
         "is_upcoming": contest.is_upcoming,
         "points_precision": contest.points_precision,
     }
+
+
+def _submission_detail_dict(submission) -> SubmissionDetailOut:
+    """Build the submission response shared with the submissions API."""
+
+    return SubmissionDetailOut(
+        id=submission.id,
+        user_id=submission.user_id,
+        problem_code=submission.problem.code,
+        language=submission.language.name,
+        status=submission.status,
+        result=submission.result,
+        points=submission.points,
+        time_used=submission.time_used,
+        memory_used=submission.memory_used,
+        case_total=submission.case_total,
+        case_passed=submission.case_passed,
+        current_testcase=submission.current_testcase,
+        error_message=submission.error_message,
+        judged_at=submission.judged_at,
+        created_at=submission.created_at,
+    )
 
 
 def _participation_dict(participation: ContestParticipation) -> dict[str, Any]:

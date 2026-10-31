@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
@@ -26,8 +26,12 @@ class AtCoderContestFormat(AbstractContestFormat):
     key = "atcoder"
     config_schema = AtCoderFormatConfig
 
-    def update_participation(self, participation: ContestParticipation) -> None:
-        """Recalculate participation score and penalty in AtCoder mode."""
+    def calculate_participation(
+        self,
+        participation: ContestParticipation,
+        freeze_time: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Calculate participation score and penalty in AtCoder mode."""
 
         cfg = self.validate_config(participation.contest.format_config)
         total_points = 0.0
@@ -36,7 +40,7 @@ class AtCoderContestFormat(AbstractContestFormat):
         per_problem: dict[str, dict[str, Any]] = {}
 
         for contest_problem in participation.contest.contest_problems.select_related("problem").all():
-            result = self.get_problem_result(participation, contest_problem)
+            result = self.get_problem_result(participation, contest_problem, freeze_time=freeze_time)
             per_problem[contest_problem.label] = result
             if bool(result["solved"]):
                 total_points += float(contest_problem.points)
@@ -44,19 +48,21 @@ class AtCoderContestFormat(AbstractContestFormat):
                 last_ac_minutes = max(last_ac_minutes, int(result["ac_minutes"]))
 
         penalty = last_ac_minutes + total_wrong * cfg.penalty_minutes
-        participation.score = total_points
-        participation.tiebreaker = float(penalty)
-        participation.cumulative_time = timedelta(minutes=penalty)
-        participation.format_data = {
-            "penalty_minutes": cfg.penalty_minutes,
-            "problems": per_problem,
+        return {
+            "score": total_points,
+            "tiebreaker": float(penalty),
+            "cumulative_time": timedelta(minutes=penalty),
+            "format_data": {
+                "penalty_minutes": cfg.penalty_minutes,
+                "problems": per_problem,
+            },
         }
-        participation.save(update_fields=["score", "tiebreaker", "cumulative_time", "format_data", "updated_at"])
 
     def get_problem_result(
         self,
         participation: ContestParticipation,
         contest_problem: ContestProblem,
+        freeze_time: datetime | None = None,
     ) -> dict[str, Any]:
         """Compute solved state and wrong attempts before first AC."""
 
@@ -64,7 +70,7 @@ class AtCoderContestFormat(AbstractContestFormat):
         solved = False
         ac_minutes = 0
 
-        for submission in self._submission_queryset(participation, contest_problem):
+        for submission in self._submission_queryset(participation, contest_problem, freeze_time=freeze_time):
             if self._is_accepted(submission):
                 solved = True
                 ac_minutes = int(self._submission_time_seconds(participation, submission) // 60)

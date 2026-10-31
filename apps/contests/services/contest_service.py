@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
@@ -9,7 +11,7 @@ from django.utils import timezone
 from apps.contests.constants import ContestVisibility, ParticipationStatus
 from apps.contests.models import Contest, ContestParticipation, ContestProblem
 from core import events as core_events
-from core.exceptions import ContestAccessDeniedError, ContestError, ContestNotActiveError
+from core.exceptions import ContestAccessDeniedError, ContestError
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -150,6 +152,34 @@ class ContestService:
             ContestProblem.objects.filter(contest=contest, label=label).update(order=idx)
 
     @staticmethod
+    def can_join_contest(
+        user: Any,
+        contest: Contest,
+        access_code: str | None = None,
+        *,
+        allow_finished: bool = False,
+    ) -> bool:
+        """Return whether user may create a participation for contest."""
+
+        if not getattr(user, "is_authenticated", False):
+            return False
+        if contest.banned_users.filter(pk=user.pk).exists():
+            return False
+        if contest.is_upcoming:
+            return False
+        if contest.is_finished and not allow_finished:
+            return False
+        if ContestService.is_contest_staff(user, contest):
+            return True
+        if contest.access_code and access_code and hmac.compare_digest(contest.access_code, access_code):
+            return True
+        if not contest.is_visible:
+            return False
+        if contest.visibility == ContestVisibility.PUBLIC:
+            return True
+        return ContestService.can_see_contest(user, contest)
+
+    @staticmethod
     @transaction.atomic
     def join_contest(contest: Contest, user: Any, access_code: str | None = None) -> ContestParticipation:
         """Join a contest in live mode.
@@ -163,18 +193,11 @@ class ContestService:
             Participation record.
 
         Raises:
-            ContestAccessDeniedError: If access is denied.
-            ContestNotActiveError: If contest cannot currently be joined.
+            ContestAccessDeniedError: If access is denied or the contest is not joinable.
         """
 
-        if contest.banned_users.filter(pk=user.pk).exists():
-            raise ContestAccessDeniedError("User is banned from this contest.")
-
-        if contest.access_code and contest.access_code != access_code:
-            raise ContestAccessDeniedError("Invalid contest access code.")
-
-        if contest.is_finished:
-            raise ContestNotActiveError("Contest has already ended.")
+        if not ContestService.can_join_contest(user, contest, access_code):
+            raise ContestAccessDeniedError("You are not allowed to join this contest.")
 
         participation, created = ContestParticipation.objects.get_or_create(
             contest=contest,
@@ -195,22 +218,38 @@ class ContestService:
 
     @staticmethod
     @transaction.atomic
-    def start_virtual(contest: Contest, user: Any) -> ContestParticipation:
+    def start_virtual(contest: Contest, user: Any, access_code: str | None = None) -> ContestParticipation:
         """Start virtual participation for a user.
 
         Args:
             contest: Target contest.
             user: User starting virtual participation.
+            access_code: Optional contest access code.
 
         Returns:
             Virtual participation record.
 
         Raises:
             ContestError: If virtual participation is not supported.
+            ContestAccessDeniedError: If the user may not enter the contest.
         """
 
         if not contest.time_limit:
             raise ContestError("Virtual participation requires contest.time_limit.")
+        if not ContestService.can_join_contest(user, contest, access_code, allow_finished=True):
+            raise ContestAccessDeniedError("You are not allowed to enter this contest.")
+
+        existing = (
+            ContestParticipation.objects.filter(
+                contest=contest,
+                user=user,
+                status=ParticipationStatus.VIRTUAL,
+            )
+            .order_by("id")
+            .first()
+        )
+        if existing is not None:
+            return existing
 
         return ContestParticipation.objects.create(
             contest=contest,
@@ -218,6 +257,59 @@ class ContestService:
             status=ParticipationStatus.VIRTUAL,
             virtual_start=timezone.now(),
             format_data={},
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def submit_to_contest(
+        *,
+        user: Any,
+        contest: Contest,
+        problem_code: str,
+        language: Any,
+        source_code: str,
+    ) -> Any:
+        """Create a submission bound to the caller's contest participation."""
+
+        participation = (
+            contest.participations.select_for_update()
+            .filter(
+                user=user,
+                is_disqualified=False,
+                status__in=[ParticipationStatus.LIVE, ParticipationStatus.VIRTUAL],
+            )
+            .first()
+        )
+        if participation is None:
+            raise ContestAccessDeniedError("Join the contest before submitting.")
+
+        if participation.status == ParticipationStatus.LIVE and not contest.is_active:
+            raise ContestError("Contest is not active.")
+        if participation.status == ParticipationStatus.VIRTUAL and participation.time_remaining <= timedelta(0):
+            raise ContestError("Virtual participation time has expired.")
+
+        contest_problem = (
+            ContestProblem.objects.select_for_update()
+            .select_related("problem")
+            .filter(contest=contest, problem__code=problem_code)
+            .first()
+        )
+        if contest_problem is None:
+            raise ContestError("Problem is not part of this contest.")
+
+        if contest_problem.max_submissions is not None:
+            used = participation.submissions.filter(problem=contest_problem.problem).count()
+            if used >= contest_problem.max_submissions:
+                raise ContestError("Submission limit reached for this problem.")
+
+        from apps.submissions.services import SubmissionService
+
+        return SubmissionService.create_submission(
+            user=user,
+            problem=contest_problem.problem,
+            language=language,
+            source_code=source_code,
+            contest_participation=participation,
         )
 
     @staticmethod

@@ -81,6 +81,7 @@ class ContestProblemOut(Schema):
     order: int
     points: float
     partial_score: bool
+    max_submissions: int | None = None
 
 
 class RankingEntryOut(Schema):

@@ -65,10 +65,28 @@ class RankingService:
             Ranking entries appropriate for freeze window display.
         """
 
-        entries = RankingService.get_contest_ranking(contest)
         if not contest.is_frozen:
-            return entries
+            return RankingService.get_contest_ranking(contest)
 
-        for entry in entries:
-            entry["format_data"] = {"frozen": True}
+        freeze_time = contest.start_time + contest.scoreboard_frozen_after
+        format_impl = get_format(contest.format_name)
+        entries: list[dict[str, Any]] = []
+
+        for participation in contest.participations.select_related("user").filter(is_disqualified=False):
+            frozen = format_impl.calculate_participation(participation, freeze_time=freeze_time)
+            entries.append(
+                {
+                    "participation_id": participation.id,
+                    "user_id": participation.user_id,
+                    "username": getattr(participation.user, "username", str(participation.user_id)),
+                    "score": float(frozen["score"]),
+                    "tiebreaker": float(frozen["tiebreaker"]),
+                    "cumulative_time": frozen["cumulative_time"],
+                    "format_data": {"frozen": True},
+                }
+            )
+
+        entries.sort(key=lambda item: (-item["score"], item["tiebreaker"], item["user_id"]))
+        for rank, entry in enumerate(entries, start=1):
+            entry["rank"] = rank
         return entries

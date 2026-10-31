@@ -39,12 +39,26 @@ class AbstractContestFormat(ABC):
         return cls.config_schema.model_validate(raw_config or {})
 
     @abstractmethod
+    def calculate_participation(
+        self,
+        participation: ContestParticipation,
+        freeze_time: datetime | None = None,
+    ) -> dict[str, Any]:
+        """Compute score, tiebreaker, cumulative time, and format data."""
+
     def update_participation(self, participation: ContestParticipation) -> None:
         """Recalculate and persist a participation's score and tie data.
 
         Args:
             participation: Participation entry to update.
         """
+
+        result = self.calculate_participation(participation)
+        participation.score = float(result["score"])
+        participation.tiebreaker = float(result["tiebreaker"])
+        participation.cumulative_time = result["cumulative_time"]
+        participation.format_data = result["format_data"]
+        participation.save(update_fields=["score", "tiebreaker", "cumulative_time", "format_data", "updated_at"])
 
     def get_ranking(self, contest: Contest) -> list[dict[str, Any]]:
         """Build and sort ranking entries for a contest.
@@ -80,6 +94,7 @@ class AbstractContestFormat(ABC):
         self,
         participation: ContestParticipation,
         contest_problem: ContestProblem,
+        freeze_time: datetime | None = None,
     ) -> dict[str, Any]:
         """Compute per-problem result for one participation.
 
@@ -131,6 +146,8 @@ class AbstractContestFormat(ABC):
         field_names = {field.name for field in submission_model._meta.get_fields()}  # type: ignore[attr-defined]
 
         filters: dict[str, Any] = {}
+        if "contest_participation" in field_names:
+            filters["contest_participation_id"] = participation.id
         if "participation" in field_names:
             filters["participation_id"] = participation.id
         if "contest" in field_names:
@@ -153,6 +170,10 @@ class AbstractContestFormat(ABC):
 
     def _is_accepted(self, submission: Model) -> bool:
         """Infer accepted status from common submission attributes."""
+
+        result = getattr(submission, "result", None)
+        if isinstance(result, str) and result:
+            return result.upper() == "AC"
 
         for attr in ("is_accepted", "accepted"):
             value = getattr(submission, attr, None)

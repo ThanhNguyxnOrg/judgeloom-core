@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from functools import partial
 from typing import Any
@@ -21,6 +22,8 @@ from core.events import (
 from core.exceptions import JudgeJobConflictError, PermissionDeniedError, ValidationError
 
 LEASE_SECONDS = 60
+
+logger = logging.getLogger(__name__)
 
 
 class JudgeResultService:
@@ -50,6 +53,19 @@ class JudgeResultService:
         if index < 0 or index >= len(manifest_cases):
             return {}
         return manifest_cases[index]
+
+    @staticmethod
+    def _refresh_contest_score(submission: Submission) -> None:
+        """Recalculate the linked contest participation after a result change."""
+
+        if not submission.contest_participation_id:
+            return
+        try:
+            from apps.contests.services import RankingService
+
+            RankingService.recalculate_participation(submission.contest_participation)
+        except Exception:
+            logger.exception("Failed to recalculate contest score for submission %s", submission.pk)
 
     @staticmethod
     def _publish(event_type: str, payload: dict[str, Any], submission_id: int) -> None:
@@ -220,6 +236,7 @@ class JudgeResultService:
                 "updated_at",
             ]
         )
+        JudgeResultService._refresh_contest_score(submission)
 
         locked.status = JudgeJobStatus.SUCCEEDED
         locked.finished_at = timezone.now()
@@ -289,6 +306,7 @@ class JudgeResultService:
                 "updated_at",
             ]
         )
+        JudgeResultService._refresh_contest_score(submission)
 
         locked.status = JudgeJobStatus.FAILED
         locked.finished_at = timezone.now()
