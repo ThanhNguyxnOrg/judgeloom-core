@@ -2,7 +2,6 @@ package executor
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -20,20 +19,14 @@ func TestGoJudgeRunRequestShapeAndResponse(t *testing.T) {
 			t.Fatal(err)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"requestID":"req",
-			"results":[{
-				"status":"Accepted",
-				"exitStatus":0,
-				"time":1500000000,
-				"memory":2048,
-				"files":{
-					"stdout":"aGVsbG8K",
-					"stderr":""
-				},
-				"fileIDs":{"main":"file-1"}
-			}]
-		}`))
+		_, _ = w.Write([]byte(`[{
+			"status":"Accepted",
+			"exitStatus":0,
+			"time":1500000000,
+			"memory":2048,
+			"files":{"stdout":"hello\n","stderr":""},
+			"fileIds":{"main":"file-1"}
+		}]`))
 	}))
 	defer server.Close()
 
@@ -59,25 +52,25 @@ func TestGoJudgeRunRequestShapeAndResponse(t *testing.T) {
 	}
 
 	cmd := requestBody["cmd"].([]any)[0].(map[string]any)
-	if cmd["cpuTimeLimit"].(float64) != float64((2 * time.Second).Nanoseconds()) {
-		t.Fatalf("unexpected cpu limit: %v", cmd["cpuTimeLimit"])
+	if cmd["cpuLimit"].(float64) != float64((2 * time.Second).Nanoseconds()) {
+		t.Fatalf("unexpected cpu limit: %v", cmd["cpuLimit"])
 	}
-	if cmd["clockTimeLimit"].(float64) != float64((4 * time.Second).Nanoseconds()) {
-		t.Fatalf("unexpected clock limit: %v", cmd["clockTimeLimit"])
+	if cmd["clockLimit"].(float64) != float64((4 * time.Second).Nanoseconds()) {
+		t.Fatalf("unexpected clock limit: %v", cmd["clockLimit"])
 	}
 	if cmd["memoryLimit"].(float64) != float64(262144*1024) || cmd["procLimit"].(float64) != 64 {
 		t.Fatalf("unexpected limits: %+v", cmd)
 	}
-	copyIn := cmd["copyIn"].(map[string]any)["main.py"].(map[string]any)["memory"].(map[string]any)
-	if copyIn["content"] != base64.StdEncoding.EncodeToString([]byte("print(1)\n")) {
+	copyIn := cmd["copyIn"].(map[string]any)["main.py"].(map[string]any)
+	if copyIn["content"] != "print(1)\n" {
 		t.Fatalf("unexpected copyIn: %+v", copyIn)
 	}
 	files := cmd["files"].([]any)
 	if len(files) != 3 {
 		t.Fatalf("expected 3 files, got %d", len(files))
 	}
-	stdoutPipe := files[1].(map[string]any)["pipe"].(map[string]any)
-	if stdoutPipe["name"] != "stdout" {
+	stdoutPipe := files[1].(map[string]any)
+	if stdoutPipe["name"] != "stdout" || stdoutPipe["pipe"] != true {
 		t.Fatalf("unexpected stdout pipe: %+v", stdoutPipe)
 	}
 }
@@ -85,26 +78,22 @@ func TestGoJudgeRunRequestShapeAndResponse(t *testing.T) {
 func TestGoJudgeMapsStatuses(t *testing.T) {
 	tests := []struct {
 		name   string
-		status any
+		status string
 		want   string
 	}{
 		{name: "accepted", status: "Accepted", want: "AC"},
-		{name: "tle string", status: "TimeLimitExceeded", want: "TLE"},
-		{name: "tle number", status: 5, want: "TLE"},
+		{name: "tle", status: "TimeLimitExceeded", want: "TLE"},
 		{name: "mle", status: "MemoryLimitExceeded", want: "MLE"},
 		{name: "ole", status: "OutputLimitExceeded", want: "OLE"},
 		{name: "rte", status: "NonZeroExitStatus", want: "RTE"},
 		{name: "signal", status: "Signalled", want: "RTE"},
 		{name: "dangerous", status: "DangerousSyscall", want: "IE"},
-		{name: "internal", status: 13, want: "IE"},
+		{name: "internal", status: "InternalError", want: "IE"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				_ = json.NewEncoder(w).Encode(map[string]any{
-					"requestID": "req",
-					"results":   []map[string]any{{"status": test.status, "exitStatus": 0}},
-				})
+				_ = json.NewEncoder(w).Encode([]map[string]any{{"status": test.status, "exitStatus": 0}})
 			}))
 			defer server.Close()
 			judge := &GoJudge{BaseURL: server.URL, Client: server.Client()}

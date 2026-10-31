@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -41,7 +40,7 @@ func TestRunnerPythonCompileAndRun(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatal(err)
 		}
-		_, _ = w.Write([]byte(`{"results":[{"status":"Accepted","exitStatus":0,"time":1000000,"memory":1024,"files":{"stdout":"aGVsbG8K"}}]}`))
+		_, _ = w.Write([]byte(`[{"status":"Accepted","exitStatus":0,"time":1000000,"memory":1024,"files":{"stdout":"hello\n"}}]`))
 	}))
 	defer server.Close()
 
@@ -58,13 +57,13 @@ func TestRunnerPythonCompileAndRun(t *testing.T) {
 	if strings.Join(anyStrings(cmd["args"]), " ") != "python3 main.py" {
 		t.Fatalf("unexpected args: %v", cmd["args"])
 	}
-	copyIn := cmd["copyIn"].(map[string]any)["main.py"].(map[string]any)["memory"].(map[string]any)
-	if copyIn["content"] != base64.StdEncoding.EncodeToString([]byte("print(1)\n")) {
+	copyIn := cmd["copyIn"].(map[string]any)["main.py"].(map[string]any)
+	if copyIn["content"] != "print(1)\n" {
 		t.Fatalf("unexpected source copyIn: %+v", copyIn)
 	}
 	files := cmd["files"].([]any)
-	stdin := files[0].(map[string]any)["memory"].(map[string]any)
-	if stdin["content"] != base64.StdEncoding.EncodeToString([]byte("1 2\n")) {
+	stdin := files[0].(map[string]any)
+	if stdin["content"] != "1 2\n" {
 		t.Fatalf("unexpected stdin: %+v", stdin)
 	}
 }
@@ -82,22 +81,21 @@ func TestRunnerCppCompilesCachedBinaryThenRuns(t *testing.T) {
 			if strings.Join(anyStrings(cmd["args"]), " ") != "g++ -O2 -std=c++17 -o main main.cpp" {
 				t.Fatalf("unexpected compile args: %v", cmd["args"])
 			}
-			cached := cmd["copyOutCached"].([]any)[0].(map[string]any)
-			if cached["name"] != "main" {
-				t.Fatalf("unexpected copyOutCached: %+v", cached)
+			cached := cmd["copyOutCached"].([]any)[0].(string)
+			if cached != "main" {
+				t.Fatalf("unexpected copyOutCached: %v", cached)
 			}
-			_, _ = w.Write([]byte(`{"results":[{"status":"Accepted","exitStatus":0,"fileIDs":{"main":"bin-1"}}]}`))
+			_, _ = w.Write([]byte(`[{"status":"Accepted","exitStatus":0,"fileIds":{"main":"bin-1"}}]`))
 			return
 		}
 		if strings.Join(anyStrings(cmd["args"]), " ") != "/w/main" {
 			t.Fatalf("unexpected run args: %v", cmd["args"])
 		}
 		mainFile := cmd["copyIn"].(map[string]any)["main"].(map[string]any)
-		cached := mainFile["cached"].(map[string]any)
-		if cached["fileID"] != "bin-1" {
-			t.Fatalf("unexpected cached binary: %+v", cached)
+		if mainFile["fileId"] != "bin-1" {
+			t.Fatalf("unexpected cached binary: %+v", mainFile)
 		}
-		_, _ = w.Write([]byte(`{"results":[{"status":"Accepted","exitStatus":0}]}`))
+		_, _ = w.Write([]byte(`[{"status":"Accepted","exitStatus":0}]`))
 	}))
 	defer server.Close()
 
@@ -115,7 +113,7 @@ func TestRunnerCompileErrorDoesNotRun(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		_, _ = w.Write([]byte(`{"results":[{"status":"NonZeroExitStatus","exitStatus":1,"files":{"stderr":"YmFk"}}]}`))
+		_, _ = w.Write([]byte(`[{"status":"NonZeroExitStatus","exitStatus":1,"files":{"stderr":"bad"}}]`))
 	}))
 	defer server.Close()
 

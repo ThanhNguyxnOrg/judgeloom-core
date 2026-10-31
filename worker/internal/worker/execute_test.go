@@ -114,15 +114,13 @@ func TestExecuteMapsCaseResults(t *testing.T) {
 		if calls == 2 {
 			output = "0"
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"results": []map[string]any{{
-				"status":     "Accepted",
-				"exitStatus": 0,
-				"time":       1000000,
-				"memory":     2048,
-				"files":      map[string]any{"stdout": []byte(output)},
-			}},
-		})
+		_ = json.NewEncoder(w).Encode([]map[string]any{{
+			"status":     "Accepted",
+			"exitStatus": 0,
+			"time":       1000000,
+			"memory":     2048,
+			"files":      map[string]string{"stdout": output},
+		}})
 	})
 
 	cases, err := executorUnderTest.Execute(context.Background(), executionJob(t, "PY3"))
@@ -145,9 +143,7 @@ func TestExecuteMapsCaseResults(t *testing.T) {
 
 func TestExecuteMapsTLE(t *testing.T) {
 	executorUnderTest := testExecutor(t, "PY3", api.Checker{}, func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"results": []map[string]any{{"status": "TimeLimitExceeded", "exitStatus": 9, "time": 1000000000}},
-		})
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "TimeLimitExceeded", "exitStatus": 9, "time": 1000000000}})
 	})
 
 	cases, err := executorUnderTest.Execute(context.Background(), executionJob(t, "PY3"))
@@ -161,7 +157,7 @@ func TestExecuteMapsTLE(t *testing.T) {
 
 func TestExecutePropagatesCompileError(t *testing.T) {
 	executorUnderTest := testExecutor(t, "CPP17", api.Checker{}, func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"results":[{"status":"NonZeroExitStatus","exitStatus":1,"files":{"stderr":"YmFk"}}]}`))
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "NonZeroExitStatus", "exitStatus": 1, "files": map[string]string{"stderr": "bad"}}})
 	})
 	job := executionJob(t, "CPP17")
 	job.Cases = job.Cases[:1]
@@ -177,9 +173,7 @@ func TestExecuteShortCircuitsAfterFailure(t *testing.T) {
 	calls := 0
 	executorUnderTest := testExecutor(t, "PY3", api.Checker{}, func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"results": []map[string]any{{"status": "Accepted", "exitStatus": 0, "files": map[string]any{"stdout": []byte("0")}}},
-		})
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "Accepted", "exitStatus": 0, "files": map[string]string{"stdout": "0"}}})
 	})
 	job := executionJob(t, "PY3")
 	job.ShortCircuit = true
@@ -195,9 +189,7 @@ func TestExecuteShortCircuitsAfterFailure(t *testing.T) {
 
 func TestExecuteWorksWithEmptyCheckerType(t *testing.T) {
 	executorUnderTest := testExecutor(t, "PY3", api.Checker{}, func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"results": []map[string]any{{"status": "Accepted", "exitStatus": 0, "files": map[string]any{"stdout": []byte("3")}}},
-		})
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "Accepted", "exitStatus": 0, "files": map[string]string{"stdout": "3"}}})
 	})
 	job := executionJob(t, "PY3")
 	job.Cases = job.Cases[:1]

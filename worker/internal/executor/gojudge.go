@@ -72,15 +72,15 @@ func (g *GoJudge) runOnce(ctx context.Context, spec RunSpec) (RunResult, error) 
 	request := runRequest{
 		RequestID: requestID(),
 		Cmd: []cmdSpec{{
-			Args:           spec.Args,
-			Env:            spec.Env,
-			Files:          []fileSpec{memoryInput(spec.StdIn), pipeOutput("stdout"), pipeOutput("stderr")},
-			CPUTimeLimit:   uint64(maxDuration(spec.CPUTime, 0)),
-			ClockTimeLimit: uint64(maxDuration(spec.ClockTime, spec.CPUTime*2)),
-			MemoryLimit:    uint64(maxInt64(spec.MemoryBytes, 0)),
-			ProcLimit:      uint64(maxInt(spec.ProcLimit, 1)),
-			CopyIn:         copyInFiles(spec.CopyIn, spec.CopyInCached),
-			CopyOutCached:  copyOutCached(spec.CopyOutCached),
+			Args:          spec.Args,
+			Env:           spec.Env,
+			Files:         []cmdFile{memoryInput(spec.StdIn), pipeOutput("stdout"), pipeOutput("stderr")},
+			CPULimit:      uint64(maxDuration(spec.CPUTime, 0)),
+			ClockLimit:    uint64(maxDuration(spec.ClockTime, spec.CPUTime*2)),
+			MemoryLimit:   uint64(maxInt64(spec.MemoryBytes, 0)),
+			ProcLimit:     uint64(maxInt(spec.ProcLimit, 1)),
+			CopyIn:        copyInFiles(spec.CopyIn, spec.CopyInCached),
+			CopyOutCached: spec.CopyOutCached,
 		}},
 	}
 	payload, err := json.Marshal(request)
@@ -111,153 +111,105 @@ func (g *GoJudge) runOnce(ctx context.Context, spec RunSpec) (RunResult, error) 
 		return RunResult{}, fmt.Errorf("go-judge %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var response runResponse
-	if err := json.Unmarshal(body, &response); err != nil {
+	var results []runResult
+	if err := json.Unmarshal(body, &results); err != nil {
 		return RunResult{}, err
 	}
-	if response.Error != "" || len(response.Results) == 0 {
-		return RunResult{Status: "IE", Error: response.Error}, nil
+	if len(results) == 0 {
+		return RunResult{Status: "IE", Error: "go-judge returned no results"}, nil
 	}
-	result := response.Results[0]
+	result := results[0]
 	return RunResult{
 		Status:     normalizeStatus(result.Status),
 		ExitStatus: result.ExitStatus,
 		Time:       time.Duration(result.Time),
 		Memory:     int64(result.Memory),
-		Stdout:     result.Files["stdout"],
-		Stderr:     result.Files["stderr"],
+		Stdout:     []byte(result.Files["stdout"]),
+		Stderr:     []byte(result.Files["stderr"]),
 		FileIDs:    result.FileIDs,
 		Error:      result.Error,
 	}, nil
 }
 
 type runRequest struct {
-	RequestID string    `json:"requestID"`
+	RequestID string    `json:"requestId"`
 	Cmd       []cmdSpec `json:"cmd"`
 }
 
 type cmdSpec struct {
-	Args           []string            `json:"args"`
-	Env            []string            `json:"env,omitempty"`
-	Files          []fileSpec          `json:"files,omitempty"`
-	CPUTimeLimit   uint64              `json:"cpuTimeLimit,omitempty"`
-	ClockTimeLimit uint64              `json:"clockTimeLimit,omitempty"`
-	MemoryLimit    uint64              `json:"memoryLimit,omitempty"`
-	ProcLimit      uint64              `json:"procLimit,omitempty"`
-	CopyIn         map[string]fileSpec `json:"copyIn,omitempty"`
-	CopyOutCached  []copyOutFile       `json:"copyOutCached,omitempty"`
+	Args          []string           `json:"args"`
+	Env           []string           `json:"env,omitempty"`
+	Files         []cmdFile          `json:"files,omitempty"`
+	CPULimit      uint64             `json:"cpuLimit,omitempty"`
+	ClockLimit    uint64             `json:"clockLimit,omitempty"`
+	MemoryLimit   uint64             `json:"memoryLimit,omitempty"`
+	ProcLimit     uint64             `json:"procLimit,omitempty"`
+	CopyIn        map[string]cmdFile `json:"copyIn,omitempty"`
+	CopyOutCached []string           `json:"copyOutCached,omitempty"`
 }
 
-type fileSpec struct {
-	Memory *memoryFile `json:"memory,omitempty"`
-	Cached *cachedFile `json:"cached,omitempty"`
-	Pipe   *pipeFile   `json:"pipe,omitempty"`
-}
-
-type cachedFile struct {
-	FileID string `json:"fileID"`
-}
-
-type memoryFile struct {
-	Content []byte `json:"content"`
-}
-
-type pipeFile struct {
-	Name string `json:"name"`
-	Max  uint64 `json:"max"`
-}
-
-type copyOutFile struct {
-	Name string `json:"name"`
-}
-
-type runResponse struct {
-	RequestID string      `json:"requestID"`
-	Results   []runResult `json:"results"`
-	Error     string      `json:"error"`
+type cmdFile struct {
+	Content *string `json:"content,omitempty"`
+	FileID  *string `json:"fileId,omitempty"`
+	Name    *string `json:"name,omitempty"`
+	Max     *int64  `json:"max,omitempty"`
+	Pipe    bool    `json:"pipe,omitempty"`
 }
 
 type runResult struct {
-	Status     json.RawMessage   `json:"status"`
+	Status     string            `json:"status"`
 	ExitStatus int               `json:"exitStatus"`
 	Error      string            `json:"error"`
 	Time       uint64            `json:"time"`
 	Memory     uint64            `json:"memory"`
-	Files      map[string][]byte `json:"files"`
-	FileIDs    map[string]string `json:"fileIDs"`
+	Files      map[string]string `json:"files"`
+	FileIDs    map[string]string `json:"fileIds"`
 }
 
-func memoryInput(content []byte) fileSpec {
-	return fileSpec{Memory: &memoryFile{Content: content}}
+func memoryInput(content []byte) cmdFile {
+	text := string(content)
+	return cmdFile{Content: &text}
 }
 
-func pipeOutput(name string) fileSpec {
-	return fileSpec{Pipe: &pipeFile{Name: name, Max: 16 << 20}}
+func pipeOutput(name string) cmdFile {
+	max := int64(16 << 20)
+	return cmdFile{Name: &name, Max: &max, Pipe: true}
 }
 
-func copyInFiles(files map[string][]byte, cached map[string]string) map[string]fileSpec {
+func copyInFiles(files map[string][]byte, cached map[string]string) map[string]cmdFile {
 	if len(files) == 0 && len(cached) == 0 {
 		return nil
 	}
-	result := make(map[string]fileSpec, len(files)+len(cached))
+	result := make(map[string]cmdFile, len(files)+len(cached))
 	for name, content := range files {
 		result[name] = memoryInput(content)
 	}
 	for name, fileID := range cached {
-		result[name] = fileSpec{Cached: &cachedFile{FileID: fileID}}
+		result[name] = cmdFile{FileID: &fileID}
 	}
 	return result
 }
 
-func copyOutCached(names []string) []copyOutFile {
-	result := make([]copyOutFile, 0, len(names))
-	for _, name := range names {
-		result = append(result, copyOutFile{Name: name})
-	}
-	return result
-}
-
-func normalizeStatus(raw json.RawMessage) string {
-	var text string
-	if json.Unmarshal(raw, &text) == nil {
-		switch strings.ToLower(strings.ReplaceAll(text, "_", "")) {
-		case "accepted", "ok":
-			return "AC"
-		case "wronganswer":
-			return "WA"
-		case "partiallycorrect":
-			return "PT"
-		case "timelimitexceeded":
-			return "TLE"
-		case "memorylimitexceeded":
-			return "MLE"
-		case "outputlimitexceeded":
-			return "OLE"
-		case "nonzeroexitstatus", "signalled":
-			return "RTE"
-		}
+func normalizeStatus(status string) string {
+	normalized := strings.ToLower(strings.NewReplacer("_", "", " ", "").Replace(status))
+	switch normalized {
+	case "accepted", "ok":
+		return "AC"
+	case "wronganswer":
+		return "WA"
+	case "partiallycorrect":
+		return "PT"
+	case "timelimitexceeded":
+		return "TLE"
+	case "memorylimitexceeded":
+		return "MLE"
+	case "outputlimitexceeded":
+		return "OLE"
+	case "nonzeroexitstatus", "signalled":
+		return "RTE"
+	default:
 		return "IE"
 	}
-	var number int
-	if json.Unmarshal(raw, &number) == nil {
-		switch number {
-		case 1:
-			return "AC"
-		case 2:
-			return "WA"
-		case 3:
-			return "PT"
-		case 4:
-			return "MLE"
-		case 5:
-			return "TLE"
-		case 6:
-			return "OLE"
-		case 8, 9:
-			return "RTE"
-		}
-	}
-	return "IE"
 }
 
 func requestID() string {

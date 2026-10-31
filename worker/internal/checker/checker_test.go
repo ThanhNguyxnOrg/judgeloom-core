@@ -2,7 +2,6 @@ package checker
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -44,10 +43,10 @@ func TestTestlibCheckerMapsExitCodes(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
 				if calls == 1 {
-					_, _ = w.Write([]byte(`{"results":[{"status":"Accepted","exitStatus":0,"fileIDs":{"checker":"chk-1"}}]}`))
+					_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "Accepted", "exitStatus": 0, "fileIds": map[string]string{"checker": "chk-1"}}})
 					return
 				}
-				_, _ = w.Write([]byte(`{"results":[{"status":"NonZeroExitStatus","exitStatus":` + itoa(test.exitStatus) + `,"files":{"stderr":"` + base64.StdEncoding.EncodeToString([]byte(test.stderr)) + `"}}]}`))
+				_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "NonZeroExitStatus", "exitStatus": test.exitStatus, "files": map[string]string{"stderr": test.stderr}}})
 			}))
 			defer server.Close()
 
@@ -68,7 +67,7 @@ func TestTestlibCheckerMapsExitCodes(t *testing.T) {
 
 func TestTestlibCheckerCompileFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"results":[{"status":"NonZeroExitStatus","exitStatus":1,"files":{"stderr":"YmFk"}}]}`))
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "NonZeroExitStatus", "exitStatus": 1, "files": map[string]string{"stderr": "bad"}}})
 	}))
 	defer server.Close()
 
