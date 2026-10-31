@@ -11,7 +11,9 @@ from apps.submissions.api.schemas import (
     SubmissionCreateIn,
     SubmissionDetailOut,
     SubmissionPageOut,
+    SubmissionShareOut,
     SubmissionSourceOut,
+    SubmissionVisibilityIn,
     TestCaseOut,
 )
 from apps.submissions.models import Submission
@@ -43,6 +45,29 @@ def _require_authenticated(request: Any) -> None:
         raise HttpError(401, "Authentication required.")
 
 
+def _submission_detail_out(submission: Any, *, include_private: bool) -> SubmissionDetailOut:
+    """Serialize a submission, masking source-bearing error text for public readers."""
+
+    return SubmissionDetailOut(
+        id=submission.id,
+        user_id=submission.user_id,
+        problem_code=submission.problem.code,
+        language=submission.language.name,
+        status=submission.status,
+        result=submission.result,
+        points=submission.points,
+        time_used=submission.time_used,
+        memory_used=submission.memory_used,
+        case_total=submission.case_total,
+        case_passed=submission.case_passed,
+        current_testcase=submission.current_testcase,
+        is_public=submission.is_public,
+        error_message=submission.error_message if include_private else "",
+        judged_at=submission.judged_at,
+        created_at=submission.created_at,
+    )
+
+
 @router.get("/", response=SubmissionPageOut)
 def list_submissions(
     request: Any,
@@ -50,6 +75,7 @@ def list_submissions(
     problem: str | None = None,
     language: int | None = None,
     result: str | None = None,
+    public: bool = False,
     page: int = 1,
     page_size: int = 20,
 ) -> SubmissionPageOut:
@@ -71,7 +97,7 @@ def list_submissions(
 
     queryset = Submission.objects.select_related("problem", "language", "user")
     if not request.user.is_staff:
-        queryset = queryset.filter(user=request.user)
+        queryset = queryset.filter(is_public=True) if public else queryset.filter(user=request.user)
     elif user_id is not None:
         queryset = queryset.filter(user_id=user_id)
 
@@ -93,6 +119,7 @@ def list_submissions(
             "status": submission.status,
             "result": submission.result,
             "points": submission.points,
+            "is_public": submission.is_public,
             "created_at": submission.created_at,
         }
         for submission in current_page.object_list
@@ -138,23 +165,57 @@ def create_submission(request: Any, payload: SubmissionCreateIn) -> SubmissionDe
         language=language,
         source_code=payload.source_code,
     )
-    return SubmissionDetailOut(
-        id=submission.id,
-        user_id=submission.user_id,
-        problem_code=submission.problem.code,
-        language=submission.language.name,
-        status=submission.status,
-        result=submission.result,
-        points=submission.points,
-        time_used=submission.time_used,
-        memory_used=submission.memory_used,
-        case_total=submission.case_total,
-        case_passed=submission.case_passed,
-        current_testcase=submission.current_testcase,
-        error_message=submission.error_message,
-        judged_at=submission.judged_at,
-        created_at=submission.created_at,
-    )
+    return _submission_detail_out(submission, include_private=True)
+
+
+@router.get("/shared/{token}", response=SubmissionDetailOut)
+def get_shared_submission(request: Any, token: str) -> SubmissionDetailOut:
+    """Return metadata for a submission share token."""
+
+    submission = SubmissionService.get_submission_by_share_token(token)
+    if submission is None:
+        raise HttpError(404, "Shared submission not found.")
+    return _submission_detail_out(submission, include_private=False)
+
+
+@router.patch("/{submission_id}/visibility", response=SubmissionDetailOut)
+def set_submission_visibility(
+    request: Any,
+    submission_id: int,
+    payload: SubmissionVisibilityIn,
+) -> SubmissionDetailOut:
+    """Set the public metadata flag for an owned submission."""
+
+    _require_authenticated(request)
+    submission = SubmissionService.get_submission(submission_id)
+    if not SubmissionService.can_edit_submission(request.user, submission):
+        raise HttpError(403, "You are not allowed to change this submission.")
+    submission = SubmissionService.set_submission_public(submission, payload.is_public)
+    return _submission_detail_out(submission, include_private=True)
+
+
+@router.post("/{submission_id}/share", response=SubmissionShareOut)
+def create_submission_share(request: Any, submission_id: int) -> SubmissionShareOut:
+    """Issue a metadata-only share token for an owned submission."""
+
+    _require_authenticated(request)
+    submission = SubmissionService.get_submission(submission_id)
+    if not SubmissionService.can_edit_submission(request.user, submission):
+        raise HttpError(403, "You are not allowed to share this submission.")
+    submission = SubmissionService.create_share_token(submission)
+    return SubmissionShareOut(share_token=str(submission.share_token))
+
+
+@router.delete("/{submission_id}/share")
+def revoke_submission_share(request: Any, submission_id: int) -> dict[str, str]:
+    """Revoke the current share token for an owned submission."""
+
+    _require_authenticated(request)
+    submission = SubmissionService.get_submission(submission_id)
+    if not SubmissionService.can_edit_submission(request.user, submission):
+        raise HttpError(403, "You are not allowed to share this submission.")
+    SubmissionService.revoke_share_token(submission)
+    return {"detail": "Share token revoked."}
 
 
 @router.get("/{submission_id}", response=SubmissionDetailOut)
@@ -168,29 +229,12 @@ def get_submission_detail(request: Any, submission_id: int) -> SubmissionDetailO
     Returns:
         Submission detail payload.
     """
-    _require_authenticated(request)
-
     submission = SubmissionService.get_submission(submission_id)
     if not SubmissionService.can_view_submission(request.user, submission):
         raise HttpError(403, "You are not allowed to view this submission.")
 
-    return SubmissionDetailOut(
-        id=submission.id,
-        user_id=submission.user_id,
-        problem_code=submission.problem.code,
-        language=submission.language.name,
-        status=submission.status,
-        result=submission.result,
-        points=submission.points,
-        time_used=submission.time_used,
-        memory_used=submission.memory_used,
-        case_total=submission.case_total,
-        case_passed=submission.case_passed,
-        current_testcase=submission.current_testcase,
-        error_message=submission.error_message,
-        judged_at=submission.judged_at,
-        created_at=submission.created_at,
-    )
+    include_private = SubmissionService.can_view_submission_private(request.user, submission)
+    return _submission_detail_out(submission, include_private=include_private)
 
 
 @router.get("/{submission_id}/source", response=SubmissionSourceOut)
@@ -207,7 +251,7 @@ def get_submission_source(request: Any, submission_id: int) -> SubmissionSourceO
     _require_authenticated(request)
 
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_view_submission(request.user, submission):
+    if not SubmissionService.can_view_submission_private(request.user, submission):
         raise HttpError(403, "You are not allowed to view this source code.")
 
     return SubmissionSourceOut(submission_id=submission.id, source_code=submission.source.source_code)
@@ -227,7 +271,7 @@ def list_test_case_results(request: Any, submission_id: int) -> list[TestCaseOut
     _require_authenticated(request)
 
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_view_submission(request.user, submission):
+    if not SubmissionService.can_view_submission_private(request.user, submission):
         raise HttpError(403, "You are not allowed to view test case data.")
 
     return [

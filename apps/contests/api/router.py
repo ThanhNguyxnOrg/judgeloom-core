@@ -268,6 +268,7 @@ def _submission_detail_dict(submission) -> SubmissionDetailOut:
         case_total=submission.case_total,
         case_passed=submission.case_passed,
         current_testcase=submission.current_testcase,
+        is_public=submission.is_public,
         error_message=submission.error_message,
         judged_at=submission.judged_at,
         created_at=submission.created_at,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -117,6 +118,20 @@ class SubmissionService:
         return submission
 
     @classmethod
+    def get_submission_by_share_token(cls, token: str) -> Submission | None:
+        """Resolve a metadata-only share token."""
+
+        try:
+            parsed = uuid.UUID(token)
+        except (ValueError, TypeError, AttributeError):
+            return None
+        return (
+            Submission.objects.select_related("user", "problem", "language", "judged_on")
+            .filter(share_token=parsed)
+            .first()
+        )
+
+    @classmethod
     def get_user_submissions(cls, user: Any, problem: Any | None = None) -> QuerySet[Submission]:
         """Return submissions visible to the user, optionally filtered by problem.
 
@@ -134,29 +149,68 @@ class SubmissionService:
             queryset = queryset.filter(problem=problem)
         return queryset
 
-    @classmethod
-    def can_view_submission(cls, user: Any, submission: Submission) -> bool:
-        """Evaluate whether a user can view a submission.
-
-        Args:
-            user: User attempting to view the submission.
-            submission: Submission under evaluation.
-
-        Returns:
-            True if access is permitted.
-        """
+    @staticmethod
+    def _is_problem_maintainer(user: Any, submission: Submission) -> bool:
         if not getattr(user, "is_authenticated", False):
             return False
-        if getattr(user, "is_staff", False):
-            return True
-        if submission.user_id == user.id:
-            return True
-        author_id = getattr(submission.problem, "author_id", None) or getattr(
-            submission.problem,
-            "created_by_id",
-            None,
+        return (
+            submission.problem.authors.filter(pk=user.pk).exists()
+            or submission.problem.curators.filter(pk=user.pk).exists()
         )
-        return author_id == user.id
+
+    @classmethod
+    def can_view_submission(cls, user: Any, submission: Submission) -> bool:
+        """Evaluate whether a user can view submission metadata."""
+
+        if submission.is_public:
+            return True
+        if not getattr(user, "is_authenticated", False):
+            return False
+        if getattr(user, "is_staff", False) or submission.user_id == user.id:
+            return True
+        return cls._is_problem_maintainer(user, submission)
+
+    @classmethod
+    def can_view_submission_private(cls, user: Any, submission: Submission) -> bool:
+        """Evaluate whether a user can see source, cases, and error detail."""
+
+        if not getattr(user, "is_authenticated", False):
+            return False
+        if getattr(user, "is_staff", False) or submission.user_id == user.id:
+            return True
+        return cls._is_problem_maintainer(user, submission)
+
+    @classmethod
+    def can_edit_submission(cls, user: Any, submission: Submission) -> bool:
+        """Evaluate whether a user may change public/share settings."""
+
+        if not getattr(user, "is_authenticated", False):
+            return False
+        return getattr(user, "is_staff", False) or submission.user_id == user.id
+
+    @classmethod
+    def set_submission_public(cls, submission: Submission, is_public: bool) -> Submission:
+        """Set public metadata visibility for a submission."""
+
+        submission.is_public = is_public
+        submission.save(update_fields=["is_public", "updated_at"])
+        return submission
+
+    @classmethod
+    def create_share_token(cls, submission: Submission) -> Submission:
+        """Issue a new metadata-only share token."""
+
+        submission.share_token = uuid.uuid4()
+        submission.save(update_fields=["share_token", "updated_at"])
+        return submission
+
+    @classmethod
+    def revoke_share_token(cls, submission: Submission) -> Submission:
+        """Revoke the current share token."""
+
+        submission.share_token = None
+        submission.save(update_fields=["share_token", "updated_at"])
+        return submission
 
     @classmethod
     @transaction.atomic

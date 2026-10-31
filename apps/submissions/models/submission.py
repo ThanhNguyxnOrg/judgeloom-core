@@ -29,6 +29,8 @@ class Submission(TimestampedModel):
         blank=True,
         related_name="submissions",
     )
+    is_public = models.BooleanField(default=False)
+    share_token = models.UUIDField(null=True, blank=True, unique=True)
     is_pretested = models.BooleanField(default=False)
     judged_on = models.ForeignKey(
         "judge.Judge",

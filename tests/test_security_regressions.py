@@ -25,7 +25,8 @@ from apps.judge.admin import JudgeAdmin
 from apps.judge.models import Judge
 from apps.problems.constants import ProblemVisibility
 from apps.problems.services.package_service import PackageImportService
-from apps.submissions.models import Submission
+from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.models import Submission, SubmissionSource
 from apps.submissions.services import SubmissionService
 from core.exceptions import ContestAccessDeniedError, ContestError, SubmissionError, ValidationError
 from core.middleware import RateLimitMiddleware
@@ -35,6 +36,7 @@ from tests.factories import (
     ContestFactory,
     ContestParticipationFactory,
     ProblemFactory,
+    SubmissionFactory,
     UserFactory,
 )
 
@@ -274,6 +276,99 @@ class TestSubmissionVisibilityRegressions:
             source_code="print(1)",
         )
         assert submission.user_id == user.id
+
+
+@pytest.mark.django_db
+class TestSubmissionPrivacyRegressions:
+    def _submission(self, user, problem, language):
+        submission = SubmissionFactory(
+            user=user,
+            problem=problem,
+            language=language,
+            status=SubmissionStatus.COMPLETED,
+            result=SubmissionResult.AC,
+            error_message="compile detail that must stay private",
+        )
+        SubmissionSource.objects.create(submission=submission, source_code="print(1)")
+        return submission
+
+    def test_public_metadata_hides_source_and_test_cases(self, user, problem, language):
+        submission = self._submission(user, problem, language)
+        submission = SubmissionService.set_submission_public(submission, True)
+        anonymous = Client()
+
+        detail = anonymous.get(f"/api/submissions/{submission.id}")
+        assert detail.status_code == 200
+        assert detail.json()["is_public"] is True
+        assert detail.json()["error_message"] == ""
+
+        assert anonymous.get(f"/api/submissions/{submission.id}/source").status_code == 401
+        assert anonymous.get(f"/api/submissions/{submission.id}/test-cases").status_code == 401
+
+        other = UserFactory()
+        authenticated = Client()
+        authenticated.force_login(other)
+        assert authenticated.get(f"/api/submissions/{submission.id}/source").status_code == 403
+        assert authenticated.get(f"/api/submissions/{submission.id}/test-cases").status_code == 403
+
+    def test_share_token_is_metadata_only_and_revocable(self, user, problem, language):
+        submission = self._submission(user, problem, language)
+        owner = Client()
+        owner.force_login(user)
+
+        created = owner.post(f"/api/submissions/{submission.id}/share")
+        assert created.status_code == 200
+        token = created.json()["share_token"]
+
+        anonymous = Client()
+        shared = anonymous.get(f"/api/submissions/shared/{token}")
+        assert shared.status_code == 200
+        assert shared.json()["id"] == submission.id
+        assert shared.json()["error_message"] == ""
+
+        revoked = owner.delete(f"/api/submissions/{submission.id}/share")
+        assert revoked.status_code == 200
+        assert anonymous.get(f"/api/submissions/shared/{token}").status_code == 404
+
+    def test_only_owner_or_staff_can_change_visibility(self, user, problem, language):
+        submission = self._submission(user, problem, language)
+        other = UserFactory()
+        client = Client()
+        client.force_login(other)
+
+        response = client.patch(
+            f"/api/submissions/{submission.id}/visibility",
+            data='{"is_public": true}',
+            content_type="application/json",
+        )
+        assert response.status_code == 403
+        submission.refresh_from_db()
+        assert submission.is_public is False
+
+    def test_problem_author_can_read_private_submission_and_source(self, user, problem, language):
+        submission = self._submission(user, problem, language)
+        author = UserFactory()
+        problem.authors.add(author)
+        client = Client()
+        client.force_login(author)
+
+        assert client.get(f"/api/submissions/{submission.id}").status_code == 200
+        source = client.get(f"/api/submissions/{submission.id}/source")
+        assert source.status_code == 200
+        assert source.json()["source_code"]
+
+    def test_public_filter_lists_public_submissions(self, user, problem, language):
+        public = self._submission(user, problem, language)
+        public = SubmissionService.set_submission_public(public, True)
+        private = self._submission(UserFactory(), problem, language)
+        viewer = Client()
+        viewer.force_login(UserFactory())
+
+        response = viewer.get("/api/submissions/?public=true")
+        assert response.status_code == 200
+        ids = {item["id"] for item in response.json()["items"]}
+        assert public.id in ids
+        assert private.id not in ids
 
 
 @pytest.mark.django_db

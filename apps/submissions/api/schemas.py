@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import datetime  # noqa: TC003 - Pydantic resolves this at runtime
 
 from ninja import Schema
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class SubmissionCreateIn(Schema):
@@ -25,7 +22,20 @@ class SubmissionListOut(Schema):
     status: str
     result: str | None
     points: float
+    is_public: bool
     created_at: datetime
+
+
+class SubmissionVisibilityIn(Schema):
+    """Owner-controlled metadata visibility."""
+
+    is_public: bool
+
+
+class SubmissionShareOut(Schema):
+    """Share-link token response."""
+
+    share_token: str
 
 
 class SubmissionDetailOut(Schema):
@@ -43,6 +53,7 @@ class SubmissionDetailOut(Schema):
     case_total: int
     case_passed: int
     current_testcase: int
+    is_public: bool
     error_message: str
     judged_at: datetime | None
     created_at: datetime
