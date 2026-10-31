@@ -8,7 +8,6 @@ Unit tests for the Rating model and rating sync signals.
 from __future__ import annotations
 
 import pytest
-
 from django.test import Client
 
 from apps.contests.constants import ContestVisibility, ParticipationStatus
