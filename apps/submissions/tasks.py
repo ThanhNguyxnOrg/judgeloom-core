@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any, cast
 
 from celery import shared_task
+from django.utils import timezone
 
+from apps.submissions.constants import SubmissionMode
 from core.exceptions import JudgeUnavailableError
 
 
@@ -33,6 +36,20 @@ def judge_submission(submission_id: int) -> None:
     dispatched = manager.dispatch_submission(submission)
     if not dispatched:
         raise JudgeUnavailableError("No available judge could accept the submission.")
+
+
+@shared_task(name="submissions.cleanup_runs")
+def cleanup_runs(ttl_minutes: int = 30) -> int:
+    """Delete ephemeral run rows older than the retention window."""
+
+    from apps.submissions.models import Submission
+
+    cutoff = timezone.now() - timedelta(minutes=ttl_minutes)
+    deleted, _ = Submission.objects.filter(
+        mode=SubmissionMode.RUN,
+        created_at__lt=cutoff,
+    ).delete()
+    return int(deleted)
 
 
 @shared_task(name="submissions.rejudge_submissions")

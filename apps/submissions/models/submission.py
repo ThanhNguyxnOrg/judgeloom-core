@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db import models
 
-from apps.submissions.constants import RESULT_CSS_CLASS, SubmissionResult, SubmissionStatus
+from apps.submissions.constants import RESULT_CSS_CLASS, SubmissionMode, SubmissionResult, SubmissionStatus
 from core.models import TimestampedModel
 
 
@@ -31,6 +31,8 @@ class Submission(TimestampedModel):
     )
     is_public = models.BooleanField(default=False)
     share_token = models.UUIDField(null=True, blank=True, unique=True)
+    mode = models.CharField(max_length=8, choices=SubmissionMode.choices, default=SubmissionMode.SUBMIT)
+    custom_input = models.TextField(blank=True, default="")
     is_pretested = models.BooleanField(default=False)
     judged_on = models.ForeignKey(
         "judge.Judge",

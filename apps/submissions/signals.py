@@ -15,7 +15,7 @@ from django.db.models import Max, Sum
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.constants import SubmissionMode, SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission
 from core.cache import invalidate_pattern, make_key
 
@@ -47,6 +47,7 @@ def update_user_stats_on_completion(
     user = instance.user
     accepted_submissions = Submission.objects.filter(
         user=user,
+        mode=SubmissionMode.SUBMIT,
         status=SubmissionStatus.COMPLETED,
         result=SubmissionResult.AC,
     )

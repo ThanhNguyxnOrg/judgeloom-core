@@ -190,7 +190,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "judge.cleanup_stale_sessions",
         "schedule": crontab(minute="*/2"),
     },
+    "submissions-cleanup-runs": {
+        "task": "submissions.cleanup_runs",
+        "schedule": crontab(minute="*/5"),
+    },
 }
+
+
+RUN_RATE_LIMIT_PER_MINUTE: int = env.int("RUN_RATE_LIMIT_PER_MINUTE", default=10)
+SUBMISSION_RATE_LIMIT_PER_MINUTE: int = env.int("SUBMISSION_RATE_LIMIT_PER_MINUTE", default=30)
 
 
 # ─── Auth ──────────────────────────────────────────────────────────────────

@@ -11,11 +11,13 @@ from apps.submissions.api.schemas import (
     SubmissionCreateIn,
     SubmissionDetailOut,
     SubmissionPageOut,
+    SubmissionRunIn,
     SubmissionShareOut,
     SubmissionSourceOut,
     SubmissionVisibilityIn,
     TestCaseOut,
 )
+from apps.submissions.constants import SubmissionMode
 from apps.submissions.models import Submission
 from apps.submissions.services import SubmissionService
 
@@ -61,6 +63,7 @@ def _submission_detail_out(submission: Any, *, include_private: bool) -> Submiss
         case_total=submission.case_total,
         case_passed=submission.case_passed,
         current_testcase=submission.current_testcase,
+        mode=submission.mode,
         is_public=submission.is_public,
         error_message=submission.error_message if include_private else "",
         judged_at=submission.judged_at,
@@ -95,7 +98,7 @@ def list_submissions(
     """
     _require_authenticated(request)
 
-    queryset = Submission.objects.select_related("problem", "language", "user")
+    queryset = Submission.objects.select_related("problem", "language", "user").filter(mode=SubmissionMode.SUBMIT)
     if not request.user.is_staff:
         queryset = queryset.filter(is_public=True) if public else queryset.filter(user=request.user)
     elif user_id is not None:
@@ -164,6 +167,32 @@ def create_submission(request: Any, payload: SubmissionCreateIn) -> SubmissionDe
         problem=problem,
         language=language,
         source_code=payload.source_code,
+    )
+    return _submission_detail_out(submission, include_private=True)
+
+
+@router.post("/run", response=SubmissionDetailOut)
+def run_submission(request: Any, payload: SubmissionRunIn) -> SubmissionDetailOut:
+    """Execute source against custom stdin without scoring or rating."""
+
+    _require_authenticated(request)
+    Problem = _get_problem_model()  # noqa: N806 — Django model class
+    Language = apps.get_model("judge", "Language")
+
+    problem = Problem.objects.filter(code=payload.problem_code).first()
+    if problem is None:
+        raise HttpError(404, "Problem not found.")
+    language = Language.objects.filter(id=payload.language_id).first()
+    if language is None:
+        raise HttpError(404, "Language not found.")
+
+    submission = SubmissionService.create_submission(
+        user=request.user,
+        problem=problem,
+        language=language,
+        source_code=payload.source_code,
+        mode=SubmissionMode.RUN,
+        custom_input=payload.stdin,
     )
     return _submission_detail_out(submission, include_private=True)
 

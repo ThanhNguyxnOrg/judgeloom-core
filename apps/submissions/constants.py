@@ -3,6 +3,13 @@ from __future__ import annotations
 from django.db import models
 
 
+class SubmissionMode(models.TextChoices):
+    """Whether a judge request is a scored submission or an ephemeral run."""
+
+    SUBMIT = "submit", "Submit"
+    RUN = "run", "Run"
+
+
 class SubmissionStatus(models.TextChoices):
     """Lifecycle states for a submission in the judging pipeline."""
 

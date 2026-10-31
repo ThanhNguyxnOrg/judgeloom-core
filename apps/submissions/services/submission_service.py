@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.judge.models import JudgeJob, JudgeJobStatus
-from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.constants import SubmissionMode, SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission, SubmissionSource, SubmissionTestCase
 from core.events import (
     SUBMISSION_JUDGED,
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 
     from apps.judge.models import Language
 
+MAX_RUN_INPUT_BYTES = 64 * 1024
+
 
 class SubmissionService:
     """Service layer for submission creation, querying, and judge updates."""
@@ -40,15 +42,19 @@ class SubmissionService:
         language: Language,
         source_code: str,
         contest_participation: Any | None = None,
+        mode: str = SubmissionMode.SUBMIT,
+        custom_input: str = "",
     ) -> Submission:
-        """Create a submission and enqueue it for judging.
+        """Create a submission or ephemeral run and enqueue it for judging.
 
         Args:
-            user: Authenticated user creating the submission.
+            user: Authenticated user creating the request.
             problem: Target problem instance.
             language: Selected language.
             source_code: Submitted source code.
             contest_participation: Optional contest participation object.
+            mode: ``submit`` for scored submissions or ``run`` for custom input.
+            custom_input: Standard input for a run.
 
         Returns:
             Persisted submission instance.
@@ -57,9 +63,17 @@ class SubmissionService:
             SubmissionError: If validation fails.
         """
         validate_source_code_size(source_code)
+        if mode == SubmissionMode.RUN:
+            if len(custom_input.encode("utf-8")) > MAX_RUN_INPUT_BYTES:
+                raise SubmissionError("Custom input exceeds the maximum allowed size.")
+        elif custom_input:
+            raise SubmissionError("Custom input is only valid for runs.")
         cls._validate_problem_access(user=user, problem=problem)
         cls._validate_language(problem=problem, language=language)
-        cls._check_rate_limit(user=user)
+        if mode == SubmissionMode.RUN:
+            cls._check_run_rate_limit(user=user)
+        else:
+            cls._check_rate_limit(user=user)
 
         package = problem.packages.filter(is_active=True).first()
         if package is None:
@@ -70,6 +84,8 @@ class SubmissionService:
             language=language,
             package=package,
             contest_participation=contest_participation,
+            mode=mode,
+            custom_input=custom_input,
         )
 
         with transaction.atomic():
@@ -78,6 +94,8 @@ class SubmissionService:
                 problem=problem,
                 language=language,
                 contest_participation=contest_participation,
+                mode=mode,
+                custom_input=custom_input,
                 status=SubmissionStatus.QUEUED,
             )
             SubmissionSource.objects.create(submission=submission, source_code=source_code)
@@ -133,16 +151,18 @@ class SubmissionService:
 
     @classmethod
     def get_user_submissions(cls, user: Any, problem: Any | None = None) -> QuerySet[Submission]:
-        """Return submissions visible to the user, optionally filtered by problem.
+        """Return scored submissions visible to the user, optionally by problem.
 
         Args:
             user: User requesting submissions.
             problem: Optional problem instance.
 
         Returns:
-            Queryset of submissions ordered by recency.
+            Queryset of scored submissions ordered by recency.
         """
-        queryset = Submission.objects.select_related("problem", "language", "judged_on").all()
+        queryset = Submission.objects.select_related("problem", "language", "judged_on").filter(
+            mode=SubmissionMode.SUBMIT
+        )
         if not getattr(user, "is_staff", False):
             queryset = queryset.filter(user=user)
         if problem is not None:
@@ -450,6 +470,8 @@ class SubmissionService:
         language: Language,
         package: Any,
         contest_participation: Any | None,
+        mode: str = SubmissionMode.SUBMIT,
+        custom_input: str = "",
     ) -> dict[str, Any]:
         """Snapshot limits and scoring mode for one judge job."""
 
@@ -459,6 +481,8 @@ class SubmissionService:
             "memory_limit": problem.memory_limit,
             "short_circuit": bool(manifest.get("short_circuit", problem.short_circuit)),
             "partial_score": bool(manifest.get("partial_score", problem.partial_score)),
+            "mode": mode,
+            "custom_input": custom_input,
         }
 
         from apps.problems.models import LanguageLimit
@@ -520,6 +544,23 @@ class SubmissionService:
             raise SubmissionError("You do not have access to this problem.")
 
     @classmethod
+    def _check_run_rate_limit(cls, user: Any) -> None:
+        """Enforce the separate per-user run rate limit."""
+
+        if getattr(user, "is_staff", False):
+            return
+
+        limit = int(getattr(settings, "RUN_RATE_LIMIT_PER_MINUTE", 10))
+        window_start = timezone.now() - timedelta(minutes=1)
+        recent_count = Submission.objects.filter(
+            user=user,
+            mode=SubmissionMode.RUN,
+            created_at__gte=window_start,
+        ).count()
+        if recent_count >= limit:
+            raise SubmissionError("Run rate limit exceeded. Try again shortly.")
+
+    @classmethod
     def _check_rate_limit(cls, user: Any) -> None:
         """Enforce per-user submission rate limit.
 
@@ -534,7 +575,11 @@ class SubmissionService:
 
         limit = int(getattr(settings, "SUBMISSION_RATE_LIMIT_PER_MINUTE", 30))
         window_start = timezone.now() - timedelta(minutes=1)
-        recent_count = Submission.objects.filter(user=user, created_at__gte=window_start).count()
+        recent_count = Submission.objects.filter(
+            user=user,
+            mode=SubmissionMode.SUBMIT,
+            created_at__gte=window_start,
+        ).count()
         if recent_count >= limit:
             raise SubmissionError("Submission rate limit exceeded. Try again shortly.")
 

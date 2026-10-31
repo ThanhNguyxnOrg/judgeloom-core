@@ -70,7 +70,7 @@ class ProfileService:
             submission_model = None
 
         if submission_model is not None:
-            submission_count = int(submission_model.objects.filter(user=user).count())
+            submission_count = int(submission_model.objects.filter(user=user, mode="submit").count())
 
         return {
             "submission_count": submission_count,

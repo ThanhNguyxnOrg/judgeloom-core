@@ -197,6 +197,8 @@ class JudgeGatewayService:
             "short_circuit": bool(config.get("short_circuit", False)),
             "partial_score": bool(config.get("partial_score", False)),
             "contest_points": config.get("contest_points"),
+            "mode": config.get("mode", "submit"),
+            "custom_input": config.get("custom_input", ""),
             "package": {
                 "problem_id": job.package.problem_id,
                 "sha256": job.package.sha256,

@@ -106,6 +106,53 @@ func executionJob(t *testing.T, language string) *api.Job {
 	}
 }
 
+func TestExecuteRunModeUsesCustomInput(t *testing.T) {
+	var requestBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatal(err)
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{{
+			"status":     "Accepted",
+			"exitStatus": 0,
+			"time":       1000000,
+			"memory":     2048,
+			"files":      map[string]string{"stdout": "hello\n"},
+		}})
+	}))
+	defer server.Close()
+
+	judge := &executor.GoJudge{BaseURL: server.URL, Client: server.Client()}
+	jobExecutor := &JobExecutor{Runner: &runner.Runner{Judge: judge}}
+	job := &api.Job{
+		JobID:        1,
+		SubmissionID: 2,
+		Language:     "PY3",
+		Mode:         "run",
+		Source:       "print(1)",
+		CustomInput:  "custom stdin\n",
+		Limits:       api.Limits{Time: 1, Memory: 1024},
+	}
+
+	cases, err := jobExecutor.Execute(context.Background(), job)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(cases) != 1 || cases[0].Status != "AC" || cases[0].Output != "hello\n" {
+		t.Fatalf("unexpected run cases: %+v", cases)
+	}
+	if cases[0].Points != 0 || cases[0].TotalPoints != 0 {
+		t.Fatalf("run should not award points: %+v", cases[0])
+	}
+
+	cmd := requestBody["cmd"].([]any)[0].(map[string]any)
+	files := cmd["files"].([]any)
+	stdin := files[0].(map[string]any)
+	if stdin["content"] != "custom stdin\n" {
+		t.Fatalf("unexpected custom stdin: %+v", stdin)
+	}
+}
+
 func TestExecuteMapsCaseResults(t *testing.T) {
 	calls := 0
 	executorUnderTest := testExecutor(t, "PY3", api.Checker{}, func(w http.ResponseWriter, r *http.Request) {

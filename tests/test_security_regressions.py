@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import zipfile
 from datetime import timedelta
 from io import BytesIO, StringIO
@@ -22,10 +23,11 @@ from apps.contests.constants import ContestVisibility
 from apps.contests.services.contest_service import ContestService
 from apps.contests.services.ranking_service import RankingService
 from apps.judge.admin import JudgeAdmin
-from apps.judge.models import Judge
+from apps.judge.models import Judge, JudgeJobStatus
+from apps.judge.services.judge_result_service import JudgeResultService
 from apps.problems.constants import ProblemVisibility
 from apps.problems.services.package_service import PackageImportService
-from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.constants import SubmissionMode, SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission, SubmissionSource
 from apps.submissions.services import SubmissionService
 from core.exceptions import ContestAccessDeniedError, ContestError, SubmissionError, ValidationError
@@ -35,6 +37,7 @@ from tests.factories import (
     BlogPostFactory,
     ContestFactory,
     ContestParticipationFactory,
+    JudgeFactory,
     ProblemFactory,
     SubmissionFactory,
     UserFactory,
@@ -369,6 +372,82 @@ class TestSubmissionPrivacyRegressions:
         ids = {item["id"] for item in response.json()["items"]}
         assert public.id in ids
         assert private.id not in ids
+
+
+@pytest.mark.django_db
+class TestRunModeRegressions:
+    def test_run_endpoint_creates_custom_job_and_hides_it_from_submission_list(self, user, problem, language):
+        import_package(problem)
+        client = Client()
+        client.force_login(user)
+
+        response = client.post(
+            "/api/submissions/run",
+            data=json.dumps(
+                {
+                    "problem_code": problem.code,
+                    "language_id": language.id,
+                    "source_code": "print(1)",
+                    "stdin": "custom\n",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["mode"] == "run"
+
+        submission = Submission.objects.get(pk=payload["id"])
+        assert submission.mode == SubmissionMode.RUN
+        assert submission.custom_input == "custom\n"
+        assert submission.judge_job.config["mode"] == "run"
+        assert submission.judge_job.config["custom_input"] == "custom\n"
+
+        listing = client.get("/api/submissions/")
+        assert listing.status_code == 200
+        assert listing.json()["items"] == []
+
+    def test_run_finishes_without_points_or_user_stats(self, user, problem, language):
+        import_package(problem)
+        submission = SubmissionService.create_submission(
+            user=user,
+            problem=problem,
+            language=language,
+            source_code="print(1)",
+            mode=SubmissionMode.RUN,
+            custom_input="custom\n",
+        )
+        job = submission.judge_job
+        judge = JudgeFactory()
+        job.status = JudgeJobStatus.CLAIMED
+        job.claimed_by = judge
+        job.lease_expires_at = timezone.now() + timedelta(minutes=1)
+        job.save(update_fields=["status", "claimed_by", "lease_expires_at"])
+
+        JudgeResultService.record_cases(
+            job,
+            judge,
+            [
+                {
+                    "case_number": 1,
+                    "status": "AC",
+                    "time_used": 0.1,
+                    "memory_used": 10,
+                    "points": 100.0,
+                    "total_points": 100.0,
+                }
+            ],
+        )
+        JudgeResultService.finish(job, judge, {"status": "completed"})
+
+        submission.refresh_from_db()
+        user.refresh_from_db()
+        assert submission.status == SubmissionStatus.COMPLETED
+        assert submission.result == SubmissionResult.AC
+        assert submission.points == 0.0
+        assert submission.case_total == 1
+        assert submission.case_passed == 1
+        assert user.problem_count == 0
 
 
 @pytest.mark.django_db

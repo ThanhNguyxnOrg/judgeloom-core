@@ -41,8 +41,37 @@ type packageCase struct {
 }
 
 func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResult, error) {
-	if e.Store == nil || e.Runner == nil {
-		return nil, fmt.Errorf("job executor store and runner are required")
+	if e.Runner == nil {
+		return nil, fmt.Errorf("job executor runner is required")
+	}
+
+	timeLimit := time.Duration(job.Limits.Time * float64(time.Second))
+	if timeLimit <= 0 {
+		timeLimit = 2 * time.Second
+	}
+	memoryBytes := job.Limits.Memory * 1024
+	if memoryBytes <= 0 {
+		memoryBytes = 256 * 1024 * 1024
+	}
+
+	if job.Mode == "run" {
+		run, err := e.Runner.CompileAndRun(ctx, job.Language, job.Source, []byte(job.CustomInput), timeLimit, memoryBytes)
+		if err != nil {
+			return nil, err
+		}
+		result := api.CaseResult{
+			CaseNumber: 1,
+			Status:     run.Status,
+			TimeUsed:   float64(run.Time) / float64(time.Second),
+			MemoryUsed: run.Memory / 1024,
+			Feedback:   run.Error,
+			Output:     truncate(run.Stdout, 4096),
+		}
+		return []api.CaseResult{result}, nil
+	}
+
+	if e.Store == nil {
+		return nil, fmt.Errorf("job executor store is required for submissions")
 	}
 	dir, err := e.Store.Ensure(ctx, job.Package.ProblemID, job.Package.SHA256)
 	if err != nil {
@@ -80,15 +109,6 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 	}
 	if checkerImpl == nil {
 		checkerImpl = &checker.ExactChecker{}
-	}
-
-	timeLimit := time.Duration(job.Limits.Time * float64(time.Second))
-	if timeLimit <= 0 {
-		timeLimit = 2 * time.Second
-	}
-	memoryBytes := job.Limits.Memory * 1024
-	if memoryBytes <= 0 {
-		memoryBytes = 256 * 1024 * 1024
 	}
 
 	results := make([]api.CaseResult, 0, len(cases))

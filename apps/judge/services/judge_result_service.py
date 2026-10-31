@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from apps.judge.models import Judge, JudgeJob, JudgeJobStatus
 from apps.judge.services.scoring_service import ScoringService
-from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from apps.submissions.constants import SubmissionMode, SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission, SubmissionTestCase
 from core.events import (
     SUBMISSION_CASE,
@@ -193,29 +193,42 @@ class JudgeResultService:
             raise JudgeJobConflictError("The judge job cannot be finished.")
 
         rows = list(SubmissionTestCase.objects.filter(submission=submission).order_by("case_number"))
-        case_payloads = [
-            {
-                "case_number": row.case_number,
-                "status": row.status,
-                "time_used": row.time_used,
-                "memory_used": row.memory_used,
-                "points": row.points,
-                "total_points": row.total_points,
-                "feedback": row.feedback,
-            }
-            for row in rows
-        ]
-        summary = ScoringService.score(locked.package, case_payloads)
 
-        submission.status = summary.status
-        submission.result = summary.result
-        submission.points = summary.points
-        submission.time_used = summary.time_used
-        submission.memory_used = summary.memory_used
-        submission.case_total = summary.case_total
-        submission.case_passed = summary.case_passed
-        submission.current_testcase = max((row.case_number for row in rows), default=0)
-        submission.subtask_scores = summary.subtask_scores
+        if submission.mode == SubmissionMode.RUN:
+            case = rows[-1] if rows else None
+            submission.status = SubmissionStatus.COMPLETED if case is not None else SubmissionStatus.ERROR
+            submission.result = case.status if case is not None else SubmissionResult.IE
+            submission.points = 0.0
+            submission.time_used = case.time_used if case is not None else 0.0
+            submission.memory_used = case.memory_used if case is not None else 0
+            submission.case_total = 1 if case is not None else 0
+            submission.case_passed = 1 if case is not None and case.status == SubmissionResult.AC else 0
+            submission.current_testcase = 1 if case is not None else 0
+            submission.subtask_scores = {}
+        else:
+            case_payloads = [
+                {
+                    "case_number": row.case_number,
+                    "status": row.status,
+                    "time_used": row.time_used,
+                    "memory_used": row.memory_used,
+                    "points": row.points,
+                    "total_points": row.total_points,
+                    "feedback": row.feedback,
+                }
+                for row in rows
+            ]
+            summary = ScoringService.score(locked.package, case_payloads)
+            submission.status = summary.status
+            submission.result = summary.result
+            submission.points = summary.points
+            submission.time_used = summary.time_used
+            submission.memory_used = summary.memory_used
+            submission.case_total = summary.case_total
+            submission.case_passed = summary.case_passed
+            submission.current_testcase = max((row.case_number for row in rows), default=0)
+            submission.subtask_scores = summary.subtask_scores
+
         submission.judged_at = timezone.now()
         submission.judged_on = judge
         submission.error_message = str(payload.get("error_message", ""))

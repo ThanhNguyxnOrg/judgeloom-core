@@ -62,6 +62,8 @@ type Job struct {
 	SubmissionID  int64    `json:"submission_id"`
 	Language      string   `json:"language"`
 	Source        string   `json:"source"`
+	Mode          string   `json:"mode"`
+	CustomInput   string   `json:"custom_input"`
 	Limits        Limits   `json:"limits"`
 	ShortCircuit  bool     `json:"short_circuit"`
 	PartialScore  bool     `json:"partial_score"`

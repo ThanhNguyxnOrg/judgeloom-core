@@ -13,6 +13,15 @@ class SubmissionCreateIn(Schema):
     source_code: str
 
 
+class SubmissionRunIn(Schema):
+    """Input payload for a custom-input run."""
+
+    problem_code: str
+    language_id: int
+    source_code: str
+    stdin: str = ""
+
+
 class SubmissionListOut(Schema):
     """Compact submission representation for list endpoints."""
 
@@ -53,6 +62,7 @@ class SubmissionDetailOut(Schema):
     case_total: int
     case_passed: int
     current_testcase: int
+    mode: str
     is_public: bool
     error_message: str
     judged_at: datetime | None
