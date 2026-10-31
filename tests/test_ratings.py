@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from apps.contests.constants import ParticipationStatus
+from django.test import Client
+
+from apps.contests.constants import ContestVisibility, ParticipationStatus
 from apps.ratings.models import Rating
 from apps.ratings.services.rating_service import RatingService
 from tests.factories import (
@@ -66,6 +68,18 @@ class TestRatingModel:
         )
         result = str(rating)
         assert "-50" in result
+
+
+@pytest.mark.django_db
+class TestRatingApiVisibility:
+    def test_private_contest_rating_changes_require_access(self):
+        private = ContestFactory(key="private-ratings", visibility=ContestVisibility.PRIVATE)
+        client = Client()
+
+        assert client.get(f"/api/ratings/contest/{private.key}").status_code == 403
+
+        public = ContestFactory(key="public-ratings", visibility=ContestVisibility.PUBLIC)
+        assert client.get(f"/api/ratings/contest/{public.key}").status_code == 200
 
 
 @pytest.mark.django_db
