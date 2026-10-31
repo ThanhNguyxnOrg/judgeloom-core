@@ -149,7 +149,11 @@ class CommentService:
             QuerySet ordered by materialized path.
         """
 
-        return Comment.objects.select_related("author", "parent").filter(post=post).order_by("path")
+        return (
+            Comment.objects.select_related("author", "parent")
+            .filter(post=post, visibility=CommentVisibility.VISIBLE)
+            .order_by("path")
+        )
 
     @classmethod
     def get_comment_tree(cls, post: BlogPost) -> list[dict[str, Any]]:

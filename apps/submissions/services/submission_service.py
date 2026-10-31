@@ -56,6 +56,7 @@ class SubmissionService:
             SubmissionError: If validation fails.
         """
         validate_source_code_size(source_code)
+        cls._validate_problem_access(user=user, problem=problem)
         cls._validate_language(problem=problem, language=language)
         cls._check_rate_limit(user=user)
 
@@ -433,7 +434,7 @@ class SubmissionService:
         if not language.is_enabled:
             raise SubmissionError("Selected language is disabled.")
 
-        allowed_relations = ["allowed_languages", "languages", "runtimes"]
+        allowed_relations = ["languages_allowed", "allowed_languages", "languages", "runtimes"]
         for relation in allowed_relations:
             manager = getattr(problem, relation, None)
             if manager is None or not hasattr(manager, "exists"):
@@ -441,6 +442,28 @@ class SubmissionService:
             if manager.exists() and not manager.filter(id=language.id).exists():
                 raise SubmissionError("Selected language is not allowed for this problem.")
             return
+
+    @classmethod
+    def _validate_problem_access(cls, *, user: Any, problem: Any) -> None:
+        """Require problem visibility or an active contest participation."""
+
+        if problem.is_accessible_by(user):
+            return
+
+        from apps.contests.constants import ParticipationStatus
+        from apps.contests.models import ContestParticipation
+
+        now = timezone.now()
+        has_active_contest = ContestParticipation.objects.filter(
+            user=user,
+            status=ParticipationStatus.LIVE,
+            contest__is_visible=True,
+            contest__start_time__lte=now,
+            contest__end_time__gt=now,
+            contest__contest_problems__problem=problem,
+        ).exists()
+        if not has_active_contest:
+            raise SubmissionError("You do not have access to this problem.")
 
     @classmethod
     def _check_rate_limit(cls, user: Any) -> None:

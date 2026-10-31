@@ -134,8 +134,7 @@ def get_post_detail(request: Any, slug: str) -> PostDetailOut:
     """Return post detail by slug."""
 
     post = PostService.get_post_by_slug(slug)
-    visible_ids = PostService.get_visible_posts(request.user).values_list("id", flat=True)
-    if post.id not in set(visible_ids):
+    if not PostService.can_view_post(request.user, post):
         raise PermissionDeniedError("Post is not visible to this user.")
     return _post_to_detail_schema(post)
 
@@ -178,8 +177,9 @@ def publish_post(request: Any, slug: str) -> PostDetailOut:
 def get_post_comments(request: Any, slug: str) -> list[CommentOut]:
     """Return threaded comments for a post."""
 
-    _ = request
     post = PostService.get_post_by_slug(slug)
+    if not PostService.can_view_post(request.user, post):
+        raise PermissionDeniedError("Post is not visible to this user.")
     tree = CommentService.get_comment_tree(post)
     return [CommentOut(**node) for node in tree]
 
@@ -190,6 +190,8 @@ def add_comment(request: Any, slug: str, payload: CommentIn) -> CommentOut:
 
     _require_authenticated(request.user)
     post = PostService.get_post_by_slug(slug)
+    if not PostService.can_view_post(request.user, post):
+        raise PermissionDeniedError("Post is not visible to this user.")
     parent = None
     if payload.parent_id is not None:
         parent = get_object_or_404(Comment, id=payload.parent_id)
@@ -273,6 +275,8 @@ def vote_comment(request: Any, comment_id: int, payload: CommentVoteIn) -> dict[
 
     _require_authenticated(request.user)
     comment = get_object_or_404(Comment, id=comment_id)
+    if not PostService.can_view_post(request.user, comment.post):
+        raise PermissionDeniedError("Post is not visible to this user.")
     CommentService.vote_comment(comment, request.user, payload.value)
     return {"detail": "Vote recorded."}
 

@@ -124,6 +124,12 @@ class PostService:
         ).distinct()
 
     @staticmethod
+    def can_view_post(user: Any, post: BlogPost) -> bool:
+        """Return whether the user may read the post."""
+
+        return PostService.get_visible_posts(user).filter(pk=post.pk).exists()
+
+    @staticmethod
     def get_post_by_slug(slug: str) -> BlogPost:
         """Return a blog post by slug.
 
