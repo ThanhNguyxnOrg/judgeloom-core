@@ -7,8 +7,12 @@ Unit tests for the Judge and Language models.
 
 from __future__ import annotations
 
-import pytest
+from io import StringIO
 
+import pytest
+from django.core.management import call_command
+
+from apps.judge.models import Judge
 from tests.factories import JudgeFactory
 
 
@@ -63,3 +67,13 @@ class TestJudgeModel:
         """Uptime is None when start_time is not set."""
         judge = JudgeFactory(start_time=None)
         assert judge.uptime is None
+
+    def test_create_judge_token_command(self):
+        output = StringIO()
+
+        call_command("create_judge_token", "token-command-judge", stdout=output)
+
+        judge = Judge.objects.get(name="token-command-judge")
+        assert judge.token_hash
+        assert judge.token_prefix
+        assert "Token (shown once):" in output.getvalue()

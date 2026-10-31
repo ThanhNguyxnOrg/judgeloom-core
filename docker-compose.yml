@@ -8,6 +8,8 @@
 #   redis         — Broker + cache + channel layer
 #   postgres      — Primary database
 #   flower        — Celery task monitor UI
+#   go-judge      — sandbox execution service
+#   judge-worker  — pull-based judge worker
 # =============================================================================
 
 services:
@@ -133,6 +135,44 @@ services:
         condition: service_healthy
     command: celery -A config flower --port=5555 --broker=redis://redis:6379/1
 
+  go-judge:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.gojudge
+    restart: unless-stopped
+    privileged: true
+    shm_size: 256m
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5050/version >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  judge-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      JUDGELOOM_API_URL: http://web:8000/api/v1
+      JUDGELOOM_JUDGE_TOKEN: ${JUDGELOOM_JUDGE_TOKEN:-change-me}
+      JUDGELOOM_JUDGE_NAME: ${JUDGELOOM_JUDGE_NAME:-judge-worker-1}
+      GO_JUDGE_URL: http://go-judge:5050
+      WORKER_LANGUAGES: ${WORKER_LANGUAGES:-PY3,CPP17}
+      WORKER_CACHE_DIR: /var/lib/judgeloom-worker
+      WORKER_POLL_INTERVAL: 2s
+      WORKER_HEARTBEAT: 10s
+    volumes:
+      - worker_cache:/var/lib/judgeloom-worker
+    depends_on:
+      web:
+        condition: service_started
+      go-judge:
+        condition: service_healthy
+
 # ─── Volumes ───────────────────────────────────────────────────────────────
 
 volumes:
@@ -141,4 +181,6 @@ volumes:
   redis_data:
     driver: local
   media_files:
+    driver: local
+  worker_cache:
     driver: local

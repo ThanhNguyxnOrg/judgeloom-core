@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1
+
+FROM golang:1.27-bookworm AS build
+
+WORKDIR /src
+COPY worker/go.mod ./worker/go.mod
+COPY worker ./worker
+RUN cd worker && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/judgeloom-worker ./cmd/judgeloom-worker
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --create-home --uid 10001 judgeloom
+
+COPY --from=build /out/judgeloom-worker /usr/local/bin/judgeloom-worker
+
+USER judgeloom
+WORKDIR /home/judgeloom
+ENTRYPOINT ["/usr/local/bin/judgeloom-worker"]

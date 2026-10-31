@@ -1,0 +1,12 @@
+# syntax=docker/dockerfile:1
+
+# The upstream go-judge image is Debian-based and provides /opt/go-judge.
+# Add the compilers/runtimes used by the worker profiles.
+FROM criyle/go-judge:v1.13.3
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    g++ \
+    python3 \
+    && rm -rf /var/lib/apt/lists/*
