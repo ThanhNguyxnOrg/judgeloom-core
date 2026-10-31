@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError
@@ -21,6 +21,7 @@ from apps.judge.auth import JudgeTokenAuth
 from apps.judge.models import Judge, JudgeJob
 from apps.judge.services.judge_gateway_service import JudgeGatewayService
 from apps.judge.services.judge_result_service import JudgeResultService
+from apps.problems.models import ProblemPackage
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -148,3 +149,18 @@ def fail_job(request: HttpRequest, job_id: int, payload: JudgeFailIn) -> Any:
         "result": submission.result,
         "error_message": submission.error_message,
     }
+
+
+@router.get("/packages/{problem_id}", auth=JudgeTokenAuth())
+def download_package(request: HttpRequest, problem_id: int, sha256: str) -> Any:
+    """Download an immutable package archive by problem and content hash."""
+
+    _ = request
+    package = ProblemPackage.objects.select_related("problem").filter(problem_id=problem_id, sha256=sha256).first()
+    if package is None:
+        raise HttpError(404, "Problem package not found.")
+    return FileResponse(
+        package.archive.open("rb"),
+        as_attachment=True,
+        filename=f"{package.problem.code}-{package.sha256}.zip",
+    )

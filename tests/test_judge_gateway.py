@@ -419,3 +419,63 @@ class TestResultRoutes:
         assert submission.status == SubmissionStatus.ERROR
         assert submission.result == SubmissionResult.CE
         assert submission.error_message == "bad compile"
+
+
+@pytest.mark.django_db
+class TestPackageDownload:
+    def test_download_package_by_hash(self, problem):
+        upload = make_zip({"data/01.in": b"1 2\n", "data/01.ans": b"3\n"})
+        payload = upload.read()
+        upload.seek(0)
+        package = PackageImportService.import_zip(problem, upload)
+        JudgeFactory(
+            name="download-judge",
+            token_hash=hashlib.sha256(b"secret").hexdigest(),
+        )
+        client = Client()
+
+        response = client.get(
+            f"/api/v1/judge/packages/{problem.pk}?sha256={package.sha256}",
+            **auth_header(),
+        )
+
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == payload
+        response.close()
+
+    def test_download_wrong_hash_returns_404(self, problem):
+        PackageImportService.import_zip(
+            problem,
+            make_zip({"data/01.in": b"1 2\n", "data/01.ans": b"3\n"}),
+        )
+        JudgeFactory(
+            name="download-wrong-hash",
+            token_hash=hashlib.sha256(b"secret").hexdigest(),
+        )
+        client = Client()
+
+        response = client.get(
+            f"/api/v1/judge/packages/{problem.pk}?sha256={'0' * 64}",
+            **auth_header(),
+        )
+
+        assert response.status_code == 404
+
+    def test_download_rejects_blocked_judge(self, problem):
+        package = PackageImportService.import_zip(
+            problem,
+            make_zip({"data/01.in": b"1 2\n", "data/01.ans": b"3\n"}),
+        )
+        JudgeFactory(
+            name="download-blocked",
+            token_hash=hashlib.sha256(b"secret").hexdigest(),
+            is_blocked=True,
+        )
+        client = Client()
+
+        response = client.get(
+            f"/api/v1/judge/packages/{problem.pk}?sha256={package.sha256}",
+            **auth_header(),
+        )
+
+        assert response.status_code == 403
