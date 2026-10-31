@@ -1,0 +1,44 @@
+{
+  "brand": "JudgeLoom",
+  "concept": "A custom double-O ligature: two interlocking loops weave over and under each other, turning the 'oo' in Loom into the core brand signature.",
+  "palette": {
+    "ink": "#182B35",
+    "jade": "#267F73",
+    "verdict_lime": "#C9E36E",
+    "paper": "#F3F1E8",
+    "dark": "#0D1B25",
+    "muted": "#AAB7B7"
+  },
+  "typography": {
+    "wordmark": "Inter Display Bold with a custom outlined OO ligature",
+    "supporting": "Inter Display Medium, outlined in SVG"
+  },
+  "assets": {
+    "logo_png": {
+      "file": "judgeloom-logo.png",
+      "dimensions": "1600x480",
+      "background": "transparent"
+    },
+    "social_preview_png": {
+      "file": "judgeloom-social-preview.png",
+      "dimensions": "1280x640"
+    }
+  },
+  "production": {
+    "vector_masters": true,
+    "svg_text_outlined": true,
+    "transparent_logo": true,
+    "mono_preview_sizes": [
+      16,
+      24,
+      32,
+      64
+    ]
+  },
+  "notes": [
+    "The logo's custom OO replaces stock lettering in the wordmark.",
+    "Two loop paths use alternating gaps to create an over-under interlace.",
+    "No bitmap elements, gradients, shadows, filters or stock iconography in the vector masters.",
+    "Social preview is exactly 2:1 at 1280x640."
+  ]
+}

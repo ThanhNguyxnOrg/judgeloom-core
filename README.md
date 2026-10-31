@@ -1,5 +1,5 @@
 ﻿<div align="center">
-  <img src="docs/assets/logo-512.png" alt="JudgeLoom Logo" width="200" />
+  <img src="docs/assets/logo.png" alt="JudgeLoom Logo" width="320" />
 
   # 🚀 JudgeLoom
 
