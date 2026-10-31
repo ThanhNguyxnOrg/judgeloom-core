@@ -8,9 +8,12 @@ Unit tests for Problem model properties and accessibility logic.
 from __future__ import annotations
 
 import pytest
+from django.test import Client
 
+from apps.accounts.services.auth_service import AuthService
 from apps.problems.constants import ProblemVisibility
-from tests.factories import ProblemFactory, UserFactory
+from apps.submissions.constants import SubmissionResult, SubmissionStatus
+from tests.factories import ProblemFactory, SubmissionFactory, TagFactory, UserFactory
 
 
 @pytest.mark.django_db
@@ -53,3 +56,56 @@ class TestProblemModel:
     def test_types_includes_standard(self, problem):
         """Default problem includes standard type."""
         assert "standard" in problem.types
+
+
+@pytest.mark.django_db
+class TestProblemApi:
+    def _client(self, user):
+        client = Client()
+        token = AuthService.generate_jwt_token(user)
+        client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        return client
+
+    def test_jwt_author_can_read_private_problem(self):
+        author = UserFactory()
+        problem = ProblemFactory(code="private-jwt", visibility=ProblemVisibility.PRIVATE)
+        problem.authors.add(author)
+
+        response = self._client(author).get("/api/problems/private-jwt")
+        assert response.status_code == 200
+
+        response = self._client(UserFactory()).get("/api/problems/private-jwt")
+        assert response.status_code == 403
+
+    def test_jwt_user_can_create_problem(self):
+        response = self._client(UserFactory()).post(
+            "/api/problems/",
+            data='{"code":"created-jwt","name":"Created","description":"desc","visibility":"private"}',
+            content_type="application/json",
+        )
+        assert response.status_code == 200
+        assert response.json()["code"] == "created-jwt"
+
+    def test_search_tag_source_ordering_and_solved_filters(self):
+        user = UserFactory()
+        tag = TagFactory(code="dp")
+        matching = ProblemFactory(code="matching", name="Matching Problem", source="ICPC", points=100)
+        matching.tags.add(tag)
+        ProblemFactory(code="other", name="Other Problem", source="IOI", points=10)
+        SubmissionFactory(
+            user=user,
+            problem=matching,
+            result=SubmissionResult.AC,
+            status=SubmissionStatus.COMPLETED,
+        )
+
+        client = self._client(user)
+        response = client.get("/api/problems/?search=Matching&tag=dp&source=ICPC&ordering=-points")
+        assert response.status_code == 200
+        codes = [item["code"] for item in response.json()["results"]]
+        assert codes == ["matching"]
+
+        response = client.get("/api/problems/?solved=true")
+        assert response.status_code == 200
+        codes = [item["code"] for item in response.json()["results"]]
+        assert codes == ["matching"]

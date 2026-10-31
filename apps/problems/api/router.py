@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from django.db.models import Q
 from ninja import Query, Router
 
 from apps.problems.api.schemas import (
@@ -17,12 +18,21 @@ from apps.problems.models import Problem, Solution
 from apps.problems.services import ProblemService
 from core.exceptions import PermissionDeniedError
 from core.pagination import PaginationParams, paginate_queryset
-from core.permissions import JudgeLoomAuth, is_authenticated
+from core.permissions import JudgeLoomAuth
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
 router = Router(tags=["problems"])
+
+
+def _request_user(request: Any) -> Any:
+    """Resolve the JWT principal set by JudgeLoomAuth, falling back to session."""
+
+    auth_user = getattr(request, "auth", None)
+    if auth_user is not None and getattr(auth_user, "is_authenticated", False):
+        return auth_user
+    return getattr(request, "user", None)
 
 
 def _serialize_problem_list(problem: Problem) -> ProblemListOut:
@@ -81,19 +91,46 @@ def list_problems(
     difficulty: str | None = None,
     min_points: float | None = None,
     max_points: float | None = None,
+    search: str | None = None,
+    tag: str | None = None,
+    source: str | None = None,
+    solved: bool = False,
+    ordering: str = "code",
 ) -> dict[str, Any]:
     """List visible problems with pagination and optional filters."""
 
-    queryset: QuerySet[Problem] = ProblemService.get_visible_problems(request.user)
+    viewer = _request_user(request)
+    queryset: QuerySet[Problem] = ProblemService.get_visible_problems(viewer)
     if difficulty:
         queryset = queryset.filter(difficulty=difficulty)
     if min_points is not None:
         queryset = queryset.filter(points__gte=min_points)
     if max_points is not None:
         queryset = queryset.filter(points__lte=max_points)
+    if search:
+        queryset = queryset.filter(
+            Q(code__icontains=search) | Q(name__icontains=search) | Q(summary__icontains=search)
+        )
+    if tag:
+        queryset = queryset.filter(tags__code=tag).distinct()
+    if source:
+        queryset = queryset.filter(source__icontains=source)
+    if solved and getattr(viewer, "is_authenticated", False):
+        queryset = queryset.filter(submissions__user=viewer, submissions__result="AC").distinct()
 
-    paginated_payload = paginate_queryset(queryset.order_by("code"), pagination)
-    paginated_payload["items"] = [_serialize_problem_list(problem) for problem in paginated_payload["items"]]
+    orderings = {
+        "code": "code",
+        "-code": "-code",
+        "points": "points",
+        "-points": "-points",
+        "difficulty": "difficulty",
+        "-difficulty": "-difficulty",
+    }
+    queryset = queryset.order_by(orderings.get(ordering, "code"))
+    paginated_payload = paginate_queryset(queryset, pagination)
+    paginated_payload["results"] = [
+        _serialize_problem_list(problem) for problem in paginated_payload["results"]
+    ]
     return paginated_payload
 
 
@@ -101,11 +138,12 @@ def list_problems(
 def create_problem(request: Any, payload: ProblemCreateIn) -> ProblemDetailOut:
     """Create a problem as an authenticated user."""
 
-    if not is_authenticated(request.user):
+    viewer = _request_user(request)
+    if not getattr(viewer, "is_authenticated", False):
         raise PermissionDeniedError("Authentication required.")
 
     create_kwargs = payload.model_dump(exclude={"code", "name"}, exclude_none=True)
-    problem = ProblemService.create_problem(payload.code, payload.name, request.user, **create_kwargs)
+    problem = ProblemService.create_problem(payload.code, payload.name, viewer, **create_kwargs)
     return _serialize_problem_detail(problem)
 
 
@@ -114,7 +152,7 @@ def get_problem_detail(request: Any, code: str) -> ProblemDetailOut:
     """Get problem details by problem code."""
 
     problem = ProblemService.get_problem_by_code(code)
-    if not ProblemService.can_see_problem(request.user, problem):
+    if not ProblemService.can_see_problem(_request_user(request), problem):
         raise PermissionDeniedError("You do not have access to this problem.")
     return _serialize_problem_detail(problem)
 
@@ -124,7 +162,7 @@ def update_problem(request: Any, code: str, payload: ProblemUpdateIn) -> Problem
     """Update mutable problem fields."""
 
     problem = ProblemService.get_problem_by_code(code)
-    if not ProblemService.can_edit_problem(request.user, problem):
+    if not ProblemService.can_edit_problem(_request_user(request), problem):
         raise PermissionDeniedError("You do not have permission to edit this problem.")
 
     update_kwargs = payload.model_dump(exclude_none=True)
@@ -138,7 +176,7 @@ def get_problem_statistics(request: Any, code: str) -> ProblemStatsOut:
     """Return aggregate statistics for a problem."""
 
     problem = ProblemService.get_problem_by_code(code)
-    if not ProblemService.can_see_problem(request.user, problem):
+    if not ProblemService.can_see_problem(_request_user(request), problem):
         raise PermissionDeniedError("You do not have access to this problem.")
     return ProblemStatsOut(**ProblemService.get_problem_statistics(problem))
 
@@ -147,12 +185,13 @@ def get_problem_statistics(request: Any, code: str) -> ProblemStatsOut:
 def list_solutions(request: Any, code: str) -> list[SolutionOut]:
     """List visible solutions for a given problem."""
 
+    viewer = _request_user(request)
     problem = ProblemService.get_problem_by_code(code)
-    if not ProblemService.can_see_problem(request.user, problem):
+    if not ProblemService.can_see_problem(viewer, problem):
         raise PermissionDeniedError("You do not have access to this problem.")
 
     solutions = problem.solutions.select_related("author", "problem")
-    if not ProblemService.can_edit_problem(request.user, problem):
+    if not ProblemService.can_edit_problem(viewer, problem):
         solutions = solutions.filter(is_public=True)
 
     return [_serialize_solution(solution) for solution in solutions]
@@ -162,15 +201,16 @@ def list_solutions(request: Any, code: str) -> list[SolutionOut]:
 def create_solution(request: Any, code: str, payload: SolutionIn) -> SolutionOut:
     """Create a new solution for a problem."""
 
+    viewer = _request_user(request)
     problem = ProblemService.get_problem_by_code(code)
-    if not ProblemService.can_see_problem(request.user, problem):
+    if not ProblemService.can_see_problem(viewer, problem):
         raise PermissionDeniedError("You do not have access to this problem.")
-    if not is_authenticated(request.user):
+    if not getattr(viewer, "is_authenticated", False):
         raise PermissionDeniedError("Authentication required.")
 
     solution = Solution.objects.create(
         problem=problem,
-        author=request.user,
+        author=viewer,
         content=payload.content,
         is_public=payload.is_public,
         verdict=payload.verdict,
