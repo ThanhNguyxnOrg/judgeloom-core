@@ -131,7 +131,10 @@ def publish_sync(event: Event, *, group: str | None = None) -> None:
     """
     from asgiref.sync import async_to_sync
 
-    async_to_sync(publish)(event, group=group)
+    try:
+        async_to_sync(publish)(event, group=group)
+    except Exception:
+        logger.exception("Failed to publish event %s to group '%s'", event.type, group)
 
 
 # ─── Event Type Constants ─────────────────────────────────────────────────

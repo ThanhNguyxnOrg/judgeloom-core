@@ -37,7 +37,7 @@
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Framework** | Django 5.1+ | Core MVC framework handling DB schemas & ORM |
+| **Framework** | Django 5.2+ | Core MVC framework handling DB schemas & ORM |
 | **API Layer** | Django Ninja | Blazing fast REST API generation |
 | **Validation** | Pydantic v2 | Strict data validation & typing |
 | **Real-time** | Django Channels | WebSockets for live submission updates |
@@ -70,6 +70,12 @@ judgeloom-core/
 ## ⚖️ Judge Protocol
 
 The pull-based judge worker API is documented in [`docs/judge/protocol-v1.md`](docs/judge/protocol-v1.md). It covers registration, heartbeats, leased job claiming, package download, per-case results, and finalization.
+
+Import test data with the management command (packages are immutable and activated explicitly):
+
+```bash
+python manage.py import_problem_package aplusb path/to/aplusb.zip
+```
 
 ## 🚀 Quick Start
 

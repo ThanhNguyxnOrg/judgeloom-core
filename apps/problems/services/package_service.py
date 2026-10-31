@@ -16,6 +16,8 @@ from apps.problems.models import Problem, ProblemPackage, ProblemTestCase
 from core.exceptions import ValidationError
 
 MAX_TEST_CASES = 200
+MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
+MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024
 
 
 class PackageImportService:
@@ -44,6 +46,8 @@ class PackageImportService:
 
         payload = archive_file.read()
         archive_file.seek(0)
+        if len(payload) > MAX_ARCHIVE_BYTES:
+            raise ValidationError(f"Archive exceeds maximum allowed size ({MAX_ARCHIVE_BYTES} bytes).")
         digest = hashlib.sha256(payload).hexdigest()
 
         existing = ProblemPackage.objects.filter(problem=problem, sha256=digest).first()
@@ -55,6 +59,8 @@ class PackageImportService:
         try:
             with zipfile.ZipFile(BytesIO(payload), "r") as zf:
                 file_names = PackageImportService._safe_file_names(zf.namelist())
+                if sum(info.file_size for info in zf.infolist()) > MAX_UNCOMPRESSED_BYTES:
+                    raise ValidationError(f"Archive exceeds maximum uncompressed size ({MAX_UNCOMPRESSED_BYTES} bytes).")
                 manifest = PackageImportService._read_manifest(zf, file_names)
                 cases = PackageImportService._manifest_cases(zf, file_names, manifest, problem)
                 if cases is None:
@@ -67,6 +73,7 @@ class PackageImportService:
         if len(cases) > MAX_TEST_CASES:
             raise ValidationError(f"Archive exceeds maximum allowed test cases ({MAX_TEST_CASES}).")
 
+        PackageImportService._validate_groups(manifest, cases)
         manifest = PackageImportService._build_manifest(problem, manifest, cases)
         version = (problem.packages.aggregate(max_version=Max("version"))["max_version"] or 0) + 1
 
@@ -157,15 +164,23 @@ class PackageImportService:
                 raise ValidationError("Each manifest case must be an object.")
             input_file = str(item.get("input", ""))
             answer_file = str(item.get("answer", item.get("output", "")))
+            if not input_file or not answer_file:
+                raise ValidationError("Manifest cases require input and answer paths.")
             if input_file not in file_names or answer_file not in file_names:
                 raise ValidationError(f"Manifest case references a missing file: {input_file}, {answer_file}")
             points = item.get("points")
+            try:
+                parsed_points = None if points is None else float(points)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError(f"Manifest case points must be numeric: {points!r}") from exc
+            if parsed_points is not None and parsed_points < 0:
+                raise ValidationError("Manifest case points cannot be negative.")
             cases.append(
                 {
                     "input": input_file,
                     "answer": answer_file,
                     "group": str(item.get("group") or "default"),
-                    "points": None if points is None else float(points),
+                    "points": parsed_points,
                     "input_sha256": hashlib.sha256(zf.read(input_file)).hexdigest(),
                     "answer_sha256": hashlib.sha256(zf.read(answer_file)).hexdigest(),
                 }
@@ -227,6 +242,43 @@ class PackageImportService:
         for case in missing:
             case["points"] = default_points
         return cases
+
+    @staticmethod
+    def _validate_groups(manifest: dict[str, Any], cases: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+        raw_groups = manifest.get("groups")
+        if raw_groups is None:
+            raw_groups = []
+        if not isinstance(raw_groups, list):
+            raise ValidationError("manifest groups must be a list.")
+
+        group_defs: dict[str, dict[str, Any]] = {}
+        for item in raw_groups:
+            if not isinstance(item, dict):
+                raise ValidationError("Each manifest group must be an object.")
+            group_id = str(item.get("id", "")).strip()
+            if not group_id:
+                raise ValidationError("Manifest group id is required.")
+            if group_id in group_defs:
+                raise ValidationError(f"Duplicate manifest group id: {group_id}")
+            mode = str(item.get("mode", "sum"))
+            if mode not in {"sum", "min"}:
+                raise ValidationError(f"Unsupported manifest group mode: {mode}")
+            try:
+                points = float(item.get("points", 0) or 0)
+            except (TypeError, ValueError) as exc:
+                raise ValidationError(f"Manifest group points must be numeric: {group_id}") from exc
+            if points < 0:
+                raise ValidationError(f"Manifest group points cannot be negative: {group_id}")
+            group_defs[group_id] = {"id": group_id, "mode": mode, "points": points}
+
+        case_groups = {str(case["group"]) for case in cases}
+        if group_defs:
+            unknown = case_groups - set(group_defs)
+            if unknown:
+                raise ValidationError(f"Manifest cases reference unknown groups: {', '.join(sorted(unknown))}")
+        elif case_groups != {"default"}:
+            raise ValidationError("Manifest cases use custom groups but no group definitions were provided.")
+        return group_defs
 
     @staticmethod
     def _build_manifest(problem: Problem, manifest: dict[str, Any], cases: list[dict[str, Any]]) -> dict[str, Any]:

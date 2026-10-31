@@ -6,10 +6,12 @@ from io import BytesIO
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.management import call_command
 from django.utils import timezone
 
 from apps.judge.models import JudgeJob, JudgeJobStatus
 from apps.judge.services.scoring_service import ScoringService
+from apps.problems.models import LanguageLimit
 from apps.problems.services.package_service import PackageImportService
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from apps.submissions.models import SubmissionTestCase
@@ -103,6 +105,25 @@ class TestSubmissionJobCreation:
         assert job.attempts == 0
         assert job.claimed_by is None
         assert job.lease_expires_at is None
+
+    def test_rejudge_command_resets_job(self, user, problem, language):
+        import_package(problem)
+        submission = SubmissionService.create_submission(
+            user=user,
+            problem=problem,
+            language=language,
+            source_code="print(1)",
+        )
+        job = submission.judge_job
+        job.status = JudgeJobStatus.SUCCEEDED
+        job.attempts = 2
+        job.save(update_fields=["status", "attempts"])
+
+        call_command("rejudge", problem=problem.code)
+
+        job.refresh_from_db()
+        assert job.status == JudgeJobStatus.QUEUED
+        assert job.attempts == 0
 
 
 @pytest.mark.django_db
@@ -207,3 +228,79 @@ class TestScoringService:
         assert summary.result == SubmissionResult.CE
         assert summary.status == SubmissionStatus.ERROR
         assert summary.points == 0.0
+
+    def test_missing_manifest_cases_score_zero(self, problem):
+        manifest = {
+            "cases": [
+                {"input": "data/01.in", "answer": "data/01.ans", "points": 50, "group": "default"},
+                {"input": "data/02.in", "answer": "data/02.ans", "points": 50, "group": "default"},
+            ],
+            "groups": [{"id": "default", "points": 100, "mode": "sum"}],
+        }
+        package = import_package_with_manifest(problem, manifest)
+
+        summary = ScoringService.score(
+            package,
+            [{"case_number": 1, "status": SubmissionResult.AC, "points": 50, "total_points": 50}],
+        )
+
+        assert summary.case_total == 2
+        assert summary.case_passed == 1
+        assert summary.points == 0.0
+        assert summary.result == SubmissionResult.WA
+
+    def test_empty_min_group_scores_zero_without_crashing(self, problem):
+        problem.partial_score = True
+        problem.save(update_fields=["partial_score"])
+        manifest = {
+            "cases": [
+                {"input": "data/01.in", "answer": "data/01.ans", "points": 50, "group": "first"},
+                {"input": "data/02.in", "answer": "data/02.ans", "points": 50, "group": "second"},
+            ],
+            "groups": [
+                {"id": "first", "points": 50, "mode": "min"},
+                {"id": "second", "points": 50, "mode": "min"},
+            ],
+        }
+        package = import_package_with_manifest(problem, manifest)
+
+        summary = ScoringService.score(
+            package,
+            [{"case_number": 1, "status": SubmissionResult.AC, "points": 50, "total_points": 50}],
+        )
+
+        assert summary.subtask_scores["first"] == 50.0
+        assert summary.subtask_scores["second"] == 0.0
+        assert summary.points == 50.0
+
+    def test_wa_reported_points_are_zeroed(self, problem):
+        problem.partial_score = True
+        problem.save(update_fields=["partial_score"])
+        package = import_package(problem)
+
+        summary = ScoringService.score(
+            package,
+            [{"case_number": 1, "status": SubmissionResult.WA, "points": 100, "total_points": 100}],
+        )
+
+        assert summary.points == 0.0
+        assert summary.result == SubmissionResult.WA
+
+    def test_language_limit_overrides_job_config(self, user, problem, language):
+        import_package(problem)
+        LanguageLimit.objects.create(
+            problem=problem,
+            language=language,
+            time_limit=5.0,
+            memory_limit=524288,
+        )
+
+        submission = SubmissionService.create_submission(
+            user=user,
+            problem=problem,
+            language=language,
+            source_code="print(1)",
+        )
+
+        assert submission.judge_job.config["time_limit"] == 5.0
+        assert submission.judge_job.config["memory_limit"] == 524288

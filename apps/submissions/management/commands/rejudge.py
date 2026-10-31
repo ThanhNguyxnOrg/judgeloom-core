@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 
 from apps.submissions.models import Submission
+from apps.submissions.services import SubmissionService
+from core.exceptions import SubmissionError
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -92,11 +94,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("No submissions match the given filters."))
             return
 
-        self.stdout.write(f"Enqueuing {count} submission(s) for rejudge...")
+        self.stdout.write(f"Queueing {count} submission(s) for rejudge...")
 
-        from apps.submissions.tasks import rejudge_submissions
+        requeued = 0
+        for submission in queryset.iterator():
+            try:
+                SubmissionService.rejudge_submission(submission)
+            except SubmissionError as exc:
+                self.stderr.write(self.style.WARNING(f"Submission {submission.pk}: {exc}"))
+                continue
+            requeued += 1
 
-        submission_ids = list(queryset.values_list("pk", flat=True))
-        rejudge_submissions.delay(submission_ids)
-
-        self.stdout.write(self.style.SUCCESS(f"Enqueued {count} submission(s) for rejudge."))
+        self.stdout.write(self.style.SUCCESS(f"Queued {requeued} submission(s) for rejudge."))

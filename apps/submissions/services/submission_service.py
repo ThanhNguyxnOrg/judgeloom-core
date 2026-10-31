@@ -13,10 +13,9 @@ from apps.judge.models import JudgeJob, JudgeJobStatus
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission, SubmissionSource, SubmissionTestCase
 from core.events import (
-    SUBMISSION_CREATED,
     SUBMISSION_JUDGED,
     SUBMISSION_JUDGING,
-    SUBMISSION_REJUDGED,
+    SUBMISSION_STATUS,
     Event,
     publish_sync,
 )
@@ -64,16 +63,12 @@ class SubmissionService:
         if package is None:
             raise SubmissionError("No active test data package is available for this problem.")
 
-        config: dict[str, Any] = {
-            "time_limit": problem.time_limit,
-            "memory_limit": problem.memory_limit,
-            "short_circuit": problem.short_circuit,
-            "partial_score": problem.partial_score,
-        }
-        if contest_participation is not None:
-            contest_problem = contest_participation.contest.contest_problems.filter(problem=problem).first()
-            if contest_problem is not None:
-                config["contest_points"] = contest_problem.points
+        config = cls._build_job_config(
+            problem=problem,
+            language=language,
+            package=package,
+            contest_participation=contest_participation,
+        )
 
         with transaction.atomic():
             submission = Submission.objects.create(
@@ -91,7 +86,11 @@ class SubmissionService:
                 config=config,
             )
 
-        cls._publish_event(SUBMISSION_CREATED, {"submission_id": submission.id, "status": submission.status})
+        cls._publish_event(
+            SUBMISSION_STATUS,
+            {"submission_id": submission.id, "status": submission.status},
+            group=f"submission_{submission.id}",
+        )
         return submission
 
     @classmethod
@@ -159,12 +158,19 @@ class SubmissionService:
         return author_id == user.id
 
     @classmethod
+    @transaction.atomic
     def rejudge_submission(cls, submission: Submission) -> None:
-        """Reset a submission and enqueue it for rejudging.
+        """Reset a submission and queue its job for rejudging.
 
         Args:
             submission: Submission to reset and queue.
         """
+        submission = Submission.objects.select_for_update().get(pk=submission.pk)
+        job = JudgeJob.objects.select_for_update().filter(submission=submission).first()
+        package = job.package if job is not None else submission.problem.packages.filter(is_active=True).first()
+        if package is None:
+            raise SubmissionError("No active test data package is available for this problem.")
+
         submission.status = SubmissionStatus.QUEUED
         submission.result = None
         submission.points = 0.0
@@ -194,17 +200,19 @@ class SubmissionService:
                 "updated_at",
             ]
         )
-        submission.test_cases.all().delete()
+        SubmissionTestCase.objects.filter(submission=submission).delete()
 
-        job = JudgeJob.objects.filter(submission=submission).first()
         if job is None:
-            package = submission.problem.packages.filter(is_active=True).first()
-            if package is None:
-                raise SubmissionError("No active test data package is available for this problem.")
             job = JudgeJob.objects.create(
                 submission=submission,
                 package=package,
                 language=submission.language,
+                config=cls._build_job_config(
+                    problem=submission.problem,
+                    language=submission.language,
+                    package=package,
+                    contest_participation=submission.contest_participation,
+                ),
             )
         job.status = JudgeJobStatus.QUEUED
         job.attempts = 0
@@ -214,6 +222,12 @@ class SubmissionService:
         job.started_at = None
         job.finished_at = None
         job.last_error = ""
+        job.config = cls._build_job_config(
+            problem=submission.problem,
+            language=submission.language,
+            package=package,
+            contest_participation=submission.contest_participation,
+        )
         job.save(
             update_fields=[
                 "status",
@@ -224,11 +238,16 @@ class SubmissionService:
                 "started_at",
                 "finished_at",
                 "last_error",
+                "config",
                 "updated_at",
             ]
         )
 
-        cls._publish_event(SUBMISSION_REJUDGED, {"submission_id": submission.id})
+        cls._publish_event(
+            SUBMISSION_STATUS,
+            {"submission_id": submission.id, "status": SubmissionStatus.QUEUED},
+            group=f"submission_{submission.id}",
+        )
 
     @classmethod
     def rejudge_problem(cls, problem: Any) -> int:
@@ -367,6 +386,38 @@ class SubmissionService:
         cls._publish_event(SUBMISSION_JUDGING, payload)
         cls._broadcast(submission.id, payload)
         return test_case
+
+    @classmethod
+    def _build_job_config(
+        cls,
+        *,
+        problem: Any,
+        language: Language,
+        package: Any,
+        contest_participation: Any | None,
+    ) -> dict[str, Any]:
+        """Snapshot limits and scoring mode for one judge job."""
+
+        manifest = package.manifest or {}
+        config: dict[str, Any] = {
+            "time_limit": problem.time_limit,
+            "memory_limit": problem.memory_limit,
+            "short_circuit": bool(manifest.get("short_circuit", problem.short_circuit)),
+            "partial_score": bool(manifest.get("partial_score", problem.partial_score)),
+        }
+
+        from apps.problems.models import LanguageLimit
+
+        language_limit = LanguageLimit.objects.filter(problem=problem, language=language).first()
+        if language_limit is not None:
+            config["time_limit"] = language_limit.time_limit
+            config["memory_limit"] = language_limit.memory_limit
+
+        if contest_participation is not None:
+            contest_problem = contest_participation.contest.contest_problems.filter(problem=problem).first()
+            if contest_problem is not None:
+                config["contest_points"] = contest_problem.points
+        return config
 
     @classmethod
     def _validate_language(cls, problem: Any, language: Language) -> None:

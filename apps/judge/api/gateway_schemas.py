@@ -51,10 +51,12 @@ class JudgeCaseIn(Schema):
 
 
 class JudgeCasesIn(Schema):
+    package_sha256: str | None = None
     cases: list[JudgeCaseIn] = Field(default_factory=list)
 
 
 class JudgeFinishIn(Schema):
+    package_sha256: str | None = None
     status: str = "completed"
     result: str | None = None
     points: float = 0.0
@@ -66,6 +68,7 @@ class JudgeFinishIn(Schema):
 
 
 class JudgeFailIn(Schema):
+    package_sha256: str | None = None
     status: str = "error"
     result: str = "IE"
     error_message: str = ""

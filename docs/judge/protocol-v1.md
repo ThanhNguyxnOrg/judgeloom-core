@@ -94,6 +94,7 @@ Empty JSON body. Marks the job `running`, sets the submission to `JG`, and exten
 
 ```json
 {
+  "package_sha256": "<sha256 from claim>",
   "cases": [
     {
       "case_number": 1,
@@ -109,12 +110,13 @@ Empty JSON body. Marks the job `running`, sets the submission to `JG`, and exten
 }
 ```
 
-Results are upserted by `(submission, case_number)`. Posting the same case twice is safe. The server updates case counters and emits `submission.case`; it does not finalize the verdict.
+Results are upserted by `(submission, case_number)`. Posting the same case twice is safe. The server updates case counters and emits `submission.case`; it does not finalize the verdict. Workers should send `package_sha256`; a mismatch is rejected with `409` so results from stale test data cannot be applied.
 
 ### `POST /jobs/{job_id}/finish`
 
 ```json
 {
+  "package_sha256": "<sha256 from claim>",
   "status": "completed",
   "result": "AC",
   "points": 100,

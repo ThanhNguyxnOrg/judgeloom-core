@@ -18,7 +18,7 @@ from core.events import (
     Event,
     publish_sync,
 )
-from core.exceptions import JudgeJobConflictError, PermissionDeniedError
+from core.exceptions import JudgeJobConflictError, PermissionDeniedError, ValidationError
 
 LEASE_SECONDS = 60
 
@@ -68,6 +68,10 @@ class JudgeResultService:
 
         locked = JudgeResultService._lock_job(job)
         if locked.status == JudgeJobStatus.RUNNING:
+            if locked.claimed_by_id != judge.id:
+                raise PermissionDeniedError("This job is claimed by another judge.")
+            JudgeResultService._extend_lease(locked)
+            locked.save(update_fields=["lease_expires_at", "updated_at"])
             return
         JudgeResultService._assert_owned(locked, judge)
         if locked.status != JudgeJobStatus.CLAIMED:
@@ -99,9 +103,12 @@ class JudgeResultService:
             locked.started_at = locked.started_at or timezone.now()
 
         submission = locked.submission
+        manifest_cases = (locked.package.manifest or {}).get("cases") or []
         max_case = submission.current_testcase
         for case in cases:
             case_number = int(case.get("case_number", 0))
+            if manifest_cases and not 1 <= case_number <= len(manifest_cases):
+                raise ValidationError(f"Case number {case_number} is outside the active package.")
             if case_number <= 0:
                 continue
             status = str(case.get("status", SubmissionResult.IR))
@@ -124,13 +131,12 @@ class JudgeResultService:
             )
             max_case = max(max_case, case_number)
 
-        manifest_cases = (locked.package.manifest or {}).get("cases") or []
         case_total = len(manifest_cases) or submission.test_cases.count()
-        case_passed = submission.test_cases.filter(status=SubmissionResult.AC).count()
+        case_passed = submission.test_cases.filter(status=SubmissionResult.AC, case_number__lte=case_total).count()
         submission.status = SubmissionStatus.JUDGING
         submission.case_total = case_total
         submission.case_passed = case_passed
-        submission.current_testcase = max_case
+        submission.current_testcase = min(max_case, case_total)
         submission.save(
             update_fields=[
                 "status",
@@ -163,6 +169,8 @@ class JudgeResultService:
         locked = JudgeResultService._lock_job(job)
         submission = locked.submission
         if locked.status == JudgeJobStatus.SUCCEEDED:
+            if locked.claimed_by_id != judge.id:
+                raise PermissionDeniedError("This job is claimed by another judge.")
             return submission
         JudgeResultService._assert_owned(locked, judge)
         if locked.status not in {JudgeJobStatus.CLAIMED, JudgeJobStatus.RUNNING}:
@@ -242,13 +250,15 @@ class JudgeResultService:
         locked = JudgeResultService._lock_job(job)
         submission = locked.submission
         if locked.status == JudgeJobStatus.FAILED:
+            if locked.claimed_by_id != judge.id:
+                raise PermissionDeniedError("This job is claimed by another judge.")
             return submission
         JudgeResultService._assert_owned(locked, judge)
         if locked.status not in {JudgeJobStatus.CLAIMED, JudgeJobStatus.RUNNING}:
             raise JudgeJobConflictError("The judge job cannot be failed.")
 
         result = str(payload.get("result", SubmissionResult.IE))
-        if result not in SubmissionResult.values:
+        if result not in {SubmissionResult.CE, SubmissionResult.IE}:
             result = SubmissionResult.IE
         submission.status = SubmissionStatus.ERROR
         submission.result = result

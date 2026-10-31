@@ -52,6 +52,12 @@ class ProblemPackageAdmin(admin.ModelAdmin):
     inlines = (ProblemTestCaseInline,)
     actions = ("activate_packages",)
 
+    def has_add_permission(self, request):  # type: ignore[no-untyped-def]
+        return False
+
+    def has_delete_permission(self, request, obj=None):  # type: ignore[no-untyped-def]
+        return False
+
     @admin.action(description="Activate selected package")
     def activate_packages(self, request, queryset):  # type: ignore[no-untyped-def]
         for package in queryset:

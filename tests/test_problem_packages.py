@@ -142,6 +142,52 @@ class TestPackageImportService:
         assert second.is_active is True
         assert second.version == 2
 
+    def test_import_zip_rejects_unknown_case_group(self, problem):
+        manifest = {
+            "cases": [
+                {
+                    "input": "data/01.in",
+                    "answer": "data/01.ans",
+                    "points": 50,
+                    "group": "missing",
+                }
+            ],
+            "groups": [{"id": "default", "points": 100, "mode": "sum"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="unknown groups"):
+            PackageImportService.import_zip(problem, upload)
+
+    def test_import_zip_rejects_non_numeric_points(self, problem):
+        manifest = {
+            "cases": [
+                {
+                    "input": "data/01.in",
+                    "answer": "data/01.ans",
+                    "points": "not-a-number",
+                    "group": "default",
+                }
+            ],
+            "groups": [{"id": "default", "points": 100, "mode": "sum"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="points must be numeric"):
+            PackageImportService.import_zip(problem, upload)
+
     def test_activate_existing_package_deactivates_others(self, problem):
         first = PackageImportService.import_zip(
             problem,

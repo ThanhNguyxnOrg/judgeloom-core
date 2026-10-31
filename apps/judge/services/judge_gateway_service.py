@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from functools import partial
 from typing import Any
 
 from django.db import transaction
@@ -8,7 +9,8 @@ from django.utils import timezone
 
 from apps.judge.models import Judge, JudgeJob, JudgeJobStatus
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
-from apps.submissions.models import Submission
+from apps.submissions.models import Submission, SubmissionTestCase
+from core.events import SUBMISSION_FINISHED, SUBMISSION_STATUS, Event, publish_sync
 
 LEASE_SECONDS = 60
 
@@ -33,15 +35,42 @@ class JudgeGatewayService:
 
         changed = 0
         for job in stale_jobs:
+            SubmissionTestCase.objects.filter(submission_id=job.submission_id).delete()
             if job.attempts >= job.max_attempts:
                 job.status = JudgeJobStatus.FAILED
                 job.finished_at = now
+                job.lease_expires_at = None
                 job.last_error = "Lease expired after maximum attempts."
-                job.save(update_fields=["status", "finished_at", "last_error", "updated_at"])
+                job.save(update_fields=["status", "finished_at", "lease_expires_at", "last_error", "updated_at"])
                 Submission.objects.filter(pk=job.submission_id).update(
                     status=SubmissionStatus.ERROR,
                     result=SubmissionResult.IE,
+                    points=0.0,
+                    time_used=0.0,
+                    memory_used=0,
+                    case_total=0,
+                    case_passed=0,
+                    current_testcase=0,
+                    subtask_scores={},
                     error_message="Judge lease expired after maximum attempts.",
+                    judged_at=now,
+                    judged_on=None,
+                )
+                transaction.on_commit(
+                    partial(
+                        publish_sync,
+                        Event(
+                            type=SUBMISSION_FINISHED,
+                            payload={
+                                "submission_id": job.submission_id,
+                                "status": SubmissionStatus.ERROR,
+                                "result": SubmissionResult.IE,
+                                "points": 0.0,
+                                "error_message": "Judge lease expired after maximum attempts.",
+                            },
+                        ),
+                        group=f"submission_{job.submission_id}",
+                    )
                 )
             else:
                 job.status = JudgeJobStatus.QUEUED
@@ -62,6 +91,34 @@ class JudgeGatewayService:
                         "last_error",
                         "updated_at",
                     ]
+                )
+                Submission.objects.filter(pk=job.submission_id).update(
+                    status=SubmissionStatus.QUEUED,
+                    result=None,
+                    points=0.0,
+                    time_used=0.0,
+                    memory_used=0,
+                    case_total=0,
+                    case_passed=0,
+                    current_testcase=0,
+                    subtask_scores={},
+                    error_message="",
+                    judged_at=None,
+                    judged_on=None,
+                )
+                transaction.on_commit(
+                    partial(
+                        publish_sync,
+                        Event(
+                            type=SUBMISSION_STATUS,
+                            payload={
+                                "submission_id": job.submission_id,
+                                "status": SubmissionStatus.QUEUED,
+                                "current_testcase": 0,
+                            },
+                        ),
+                        group=f"submission_{job.submission_id}",
+                    )
                 )
             changed += 1
         return changed
@@ -85,7 +142,7 @@ class JudgeGatewayService:
 
         with transaction.atomic():
             job = (
-                JudgeJob.objects.select_for_update(skip_locked=True)
+                JudgeJob.objects.select_for_update(skip_locked=True, of=("self",))
                 .filter(status=JudgeJobStatus.QUEUED, language__key__in=languages)
                 .order_by("-priority", "created_at")
                 .first()

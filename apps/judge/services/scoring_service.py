@@ -71,20 +71,31 @@ class ScoringService:
             maximum = float(manifest_case.get("points", 0) or 0)
             reported = float(case.get("points", 0) or 0)
             reported_total = float(case.get("total_points", maximum) or maximum)
+            if status not in {SubmissionResult.AC, SubmissionResult.PARTIAL}:
+                reported = 0.0
             if status == SubmissionResult.AC and reported <= 0:
                 reported = reported_total or maximum
             ratio = min(max(reported / reported_total, 0.0), 1.0) if reported_total > 0 else (1.0 if status == SubmissionResult.AC else 0.0)
             group_id = str(manifest_case.get("group", "default"))
+            if group_id not in group_defs:
+                group_id = "default" if "default" in group_defs else next(iter(group_defs), "default")
             case_scores.setdefault(group_id, []).append(round(maximum * ratio, 4))
+
+        for case_number, manifest_case in case_by_number.items():
+            if case_number in statuses:
+                continue
+            group_id = str(manifest_case.get("group", "default"))
+            if group_id not in group_defs:
+                group_id = "default" if "default" in group_defs else next(iter(group_defs), "default")
+            case_scores.setdefault(group_id, []).append(0.0)
 
         subtask_scores: dict[str, float] = {}
         for group_id, scores in case_scores.items():
             group = group_defs.get(group_id, {"id": group_id, "mode": "sum"})
             mode = str(group.get("mode", "sum"))
-            group_score = min(scores) if mode == "min" else sum(scores)
-            group_cap = float(group.get("points", 0) or 0)
-            if group_cap > 0:
-                group_score = min(group_score, group_cap)
+            group_score = (min(scores) if mode == "min" else sum(scores)) if scores else 0.0
+            group_cap = max(0.0, float(group.get("points", 0) or 0))
+            group_score = min(group_score, group_cap)
             subtask_scores[group_id] = round(group_score, 4)
 
         total_possible = sum(float(group.get("points", 0) or 0) for group in groups)

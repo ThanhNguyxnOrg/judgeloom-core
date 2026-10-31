@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from django.http import FileResponse, HttpResponse
@@ -18,10 +19,11 @@ from apps.judge.api.gateway_schemas import (
     JudgeRegisterOut,
 )
 from apps.judge.auth import JudgeTokenAuth
-from apps.judge.models import Judge, JudgeJob
-from apps.judge.services.judge_gateway_service import JudgeGatewayService
+from apps.judge.models import Judge, JudgeJob, JudgeJobStatus
+from apps.judge.services.judge_gateway_service import LEASE_SECONDS, JudgeGatewayService
 from apps.judge.services.judge_result_service import JudgeResultService
 from apps.problems.models import ProblemPackage
+from core.exceptions import JudgeJobConflictError
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -43,6 +45,11 @@ def _get_job(job_id: int) -> JudgeJob:
     if job is None:
         raise HttpError(404, "Judge job not found.")
     return job
+
+
+def _verify_package(job: JudgeJob, package_sha256: str | None) -> None:
+    if package_sha256 is not None and package_sha256 != job.package.sha256:
+        raise JudgeJobConflictError("The worker reported a stale package hash.")
 
 
 @router.post("/register", response=JudgeRegisterOut, auth=JudgeTokenAuth())
@@ -88,6 +95,10 @@ def heartbeat(request: HttpRequest, payload: JudgeHeartbeatIn) -> JudgeHeartbeat
             "updated_at",
         ]
     )
+    JudgeJob.objects.filter(
+        claimed_by=judge,
+        status__in=[JudgeJobStatus.CLAIMED, JudgeJobStatus.RUNNING],
+    ).update(lease_expires_at=timezone.now() + timedelta(seconds=LEASE_SECONDS))
     return JudgeHeartbeatOut(ok=True, next_heartbeat=HEARTBEAT_INTERVAL_SECONDS)
 
 
@@ -116,8 +127,10 @@ def record_cases(request: HttpRequest, job_id: int, payload: JudgeCasesIn) -> An
     """Record a batch of per-case results."""
 
     judge = _request_judge(request)
+    job = _get_job(job_id)
+    _verify_package(job, payload.package_sha256)
     cases = [case.model_dump() for case in payload.cases]
-    JudgeResultService.record_cases(_get_job(job_id), judge, cases)
+    JudgeResultService.record_cases(job, judge, cases)
     return {"ok": True, "received": len(cases)}
 
 
@@ -126,7 +139,9 @@ def finish_job(request: HttpRequest, job_id: int, payload: JudgeFinishIn) -> Any
     """Finalize a job with server-computed scores."""
 
     judge = _request_judge(request)
-    submission = JudgeResultService.finish(_get_job(job_id), judge, payload.model_dump())
+    job = _get_job(job_id)
+    _verify_package(job, payload.package_sha256)
+    submission = JudgeResultService.finish(job, judge, payload.model_dump())
     return {
         "submission_id": submission.pk,
         "status": submission.status,
@@ -142,7 +157,9 @@ def fail_job(request: HttpRequest, job_id: int, payload: JudgeFailIn) -> Any:
     """Finalize a job as a compile/internal error."""
 
     judge = _request_judge(request)
-    submission = JudgeResultService.fail(_get_job(job_id), judge, payload.model_dump())
+    job = _get_job(job_id)
+    _verify_package(job, payload.package_sha256)
+    submission = JudgeResultService.fail(job, judge, payload.model_dump())
     return {
         "submission_id": submission.pk,
         "status": submission.status,

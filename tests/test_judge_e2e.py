@@ -72,12 +72,15 @@ def test_fake_worker_end_to_end(user, problem, language):
     worker = FakeJudge()
     claim = worker.post("/api/v1/judge/jobs/claim", {"languages": ["PY3"]})
     assert claim.status_code == 200
-    job_id = claim.json()["job_id"]
+    claim_payload = claim.json()
+    job_id = claim_payload["job_id"]
+    package_sha256 = claim_payload["package"]["sha256"]
 
     assert worker.post(f"/api/v1/judge/jobs/{job_id}/start", {}).status_code == 200
     cases = worker.post(
         f"/api/v1/judge/jobs/{job_id}/cases",
         {
+            "package_sha256": package_sha256,
             "cases": [
                 {
                     "case_number": 1,
@@ -100,7 +103,10 @@ def test_fake_worker_end_to_end(user, problem, language):
     )
     assert cases.status_code == 200
 
-    finish = worker.post(f"/api/v1/judge/jobs/{job_id}/finish", {"points": 1000})
+    finish = worker.post(
+        f"/api/v1/judge/jobs/{job_id}/finish",
+        {"package_sha256": package_sha256, "points": 1000},
+    )
     assert finish.status_code == 200
 
     submission.refresh_from_db()
@@ -115,7 +121,10 @@ def test_fake_worker_end_to_end(user, problem, language):
         SubmissionResult.WA,
     }
 
-    duplicate = worker.post(f"/api/v1/judge/jobs/{job_id}/finish", {"points": 1000})
+    duplicate = worker.post(
+        f"/api/v1/judge/jobs/{job_id}/finish",
+        {"package_sha256": package_sha256, "points": 1000},
+    )
     assert duplicate.status_code == 200
     submission.refresh_from_db()
     assert submission.test_cases.count() == 2

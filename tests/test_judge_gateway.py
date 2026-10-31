@@ -220,14 +220,24 @@ class TestLeaseExpiry:
         job.attempts = 1
         job.lease_expires_at = timezone.now() - timedelta(seconds=1)
         job.save()
+        SubmissionTestCase.objects.create(
+            submission=submission,
+            case_number=1,
+            status=SubmissionResult.AC,
+            points=100,
+            total_points=100,
+        )
 
         claimed = JudgeGatewayService.claim_job(judge_b, ["PY3"])
 
         assert claimed is not None
         assert claimed.pk == job.pk
         claimed.refresh_from_db()
+        submission.refresh_from_db()
         assert claimed.claimed_by_id == judge_b.id
         assert claimed.attempts == 2
+        assert submission.test_cases.count() == 0
+        assert submission.case_total == 0
 
     def test_max_attempts_marks_job_failed_and_submission_ie(self, user, problem, language):
         submission = make_submission(user, problem, language)
@@ -247,6 +257,8 @@ class TestLeaseExpiry:
         assert job.status == JudgeJobStatus.FAILED
         assert submission.status == SubmissionStatus.ERROR
         assert submission.result == SubmissionResult.IE
+        assert submission.judged_at is not None
+        assert submission.test_cases.count() == 0
 
     def test_concurrent_claims_only_one_wins_on_postgres(self, user, problem, language):
         if connection.vendor != "postgresql":
@@ -419,6 +431,72 @@ class TestResultRoutes:
         assert submission.status == SubmissionStatus.ERROR
         assert submission.result == SubmissionResult.CE
         assert submission.error_message == "bad compile"
+
+    def test_fail_rejects_non_error_verdict(self, user, problem, language):
+        submission = make_submission(user, problem, language)
+        judge = make_result_judge("result-fail-ac")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+
+        response = post_json(f"/api/v1/judge/jobs/{job.pk}/fail", {"result": SubmissionResult.AC})
+
+        assert response.status_code == 200
+        submission.refresh_from_db()
+        assert submission.status == SubmissionStatus.ERROR
+        assert submission.result == SubmissionResult.IE
+
+    def test_heartbeat_extends_active_job_lease(self, user, problem, language):
+        make_submission(user, problem, language)
+        judge = make_result_judge("result-heartbeat")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+        job.lease_expires_at = timezone.now() - timedelta(seconds=10)
+        job.save(update_fields=["lease_expires_at"])
+
+        response = post_json("/api/v1/judge/heartbeat", {"load": 0.1})
+
+        assert response.status_code == 200
+        job.refresh_from_db()
+        assert job.lease_expires_at > timezone.now()
+
+    def test_foreign_judge_cannot_start_job(self, user, problem, language):
+        make_submission(user, problem, language)
+        judge_a = make_result_judge("result-start-owner")
+        JudgeFactory(
+            name="result-start-other",
+            token_hash=hashlib.sha256(b"other-secret").hexdigest(),
+        )
+        job = JudgeGatewayService.claim_job(judge_a, ["PY3"])
+
+        response = post_json(f"/api/v1/judge/jobs/{job.pk}/start", {}, token="other-secret")
+
+        assert response.status_code == 403
+
+    def test_stale_package_hash_is_rejected(self, user, problem, language):
+        make_submission(user, problem, language)
+        judge = make_result_judge("result-stale-package")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+
+        response = post_json(
+            f"/api/v1/judge/jobs/{job.pk}/cases",
+            {
+                "package_sha256": "0" * 64,
+                "cases": [{"case_number": 1, "status": SubmissionResult.AC, "points": 100, "total_points": 100}],
+            },
+        )
+
+        assert response.status_code == 409
+
+    def test_out_of_range_case_is_rejected(self, user, problem, language):
+        make_submission(user, problem, language)
+        judge = make_result_judge("result-out-of-range")
+        job = JudgeGatewayService.claim_job(judge, ["PY3"])
+
+        response = post_json(
+            f"/api/v1/judge/jobs/{job.pk}/cases",
+            {"cases": [{"case_number": 99, "status": SubmissionResult.AC, "points": 100, "total_points": 100}]},
+        )
+
+        assert response.status_code == 422
+        assert SubmissionTestCase.objects.filter(submission_id=job.submission_id).count() == 0
 
 
 @pytest.mark.django_db
