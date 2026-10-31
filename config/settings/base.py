@@ -40,6 +40,9 @@ DEBUG: bool = env("DJANGO_DEBUG")
 
 ALLOWED_HOSTS: list[str] = env("DJANGO_ALLOWED_HOSTS")
 
+TRUST_X_FORWARDED_FOR: bool = env.bool("TRUST_X_FORWARDED_FOR", default=False)
+TRUSTED_PROXY_IPS: list[str] = env.list("TRUSTED_PROXY_IPS", default=[])
+
 ROOT_URLCONF = "config.urls"
 
 WSGI_APPLICATION = "config.wsgi.application"

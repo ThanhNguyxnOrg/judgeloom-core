@@ -73,9 +73,9 @@ RUN mkdir -p /var/judgeloom/static /var/judgeloom/media \
 # Switch to non-root before running the app
 USER judgeloom
 
-# Collect static assets at build time
+# Collect static assets at build time; the placeholder is build-only, never a runtime secret.
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
-RUN python manage.py collectstatic --noinput --clear
+RUN DJANGO_SECRET_KEY=build-only-not-a-secret python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
 

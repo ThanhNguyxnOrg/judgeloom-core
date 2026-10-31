@@ -63,6 +63,10 @@ yarn-error.log*
 # ─── Django runtime artefacts (generated at runtime, not build time) ─────────
 static_collected/
 media/
+*.sqlite3
+*.sqlite3-journal
+*.bak
+nul
 
 # ─── Docker files (not needed inside the image) ──────────────────────────────
 docker/

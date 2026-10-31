@@ -11,6 +11,7 @@ Classes:
 
 from __future__ import annotations
 
+import ipaddress
 import logging
 import time
 from typing import TYPE_CHECKING
@@ -191,10 +192,22 @@ class RateLimitMiddleware:
             A best-effort client IP string.
         """
 
+        remote_addr = str(request.META.get("REMOTE_ADDR", "unknown"))
+        if not getattr(settings, "TRUST_X_FORWARDED_FOR", False):
+            return remote_addr
+
+        trusted_proxies = set(getattr(settings, "TRUSTED_PROXY_IPS", []) or [])
+        if not trusted_proxies or remote_addr not in trusted_proxies:
+            return remote_addr
+
         forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if isinstance(forwarded_for, str) and forwarded_for.strip():
-            return forwarded_for.split(",", 1)[0].strip()
-        return str(request.META.get("REMOTE_ADDR", "unknown"))
+            candidate = forwarded_for.split(",", 1)[0].strip()
+            try:
+                return str(ipaddress.ip_address(candidate))
+            except ValueError:
+                return remote_addr
+        return remote_addr
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         """Apply rate limiting to API requests.

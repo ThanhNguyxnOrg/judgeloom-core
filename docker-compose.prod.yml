@@ -24,8 +24,9 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-    volumes:
-      # Do NOT mount source code in production — image is immutable
+      DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
+    # !override replaces the base `.:/app` bind mount; a plain list would merge it back in.
+    volumes: !override
       - static_files:/var/judgeloom/static
       - media_files:/var/judgeloom/media
     # Override the dev command — gunicorn is set as CMD in the Dockerfile,
@@ -59,7 +60,8 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-    volumes: []
+      DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
+    volumes: !override []
     command: celery -A config worker --loglevel=info --concurrency=4
     deploy:
       resources:
@@ -78,7 +80,8 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-    volumes: []
+      DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
+    volumes: !override []
     command: celery -A config beat --loglevel=info
     deploy:
       resources:
@@ -102,7 +105,9 @@ services:
     command: >
       celery -A config flower
       --port=5555
-      --basic_auth=${FLOWER_BASIC_AUTH}
+      --basic_auth=${FLOWER_BASIC_AUTH:?set FLOWER_BASIC_AUTH}
+    ports: !override
+      - "127.0.0.1:5555:5555"
     deploy:
       resources:
         limits:
@@ -117,6 +122,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-judgeloom}
       POSTGRES_USER: ${POSTGRES_USER:-judgeloom}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports: !override []
     deploy:
       resources:
         limits:
@@ -125,6 +131,7 @@ services:
 
   redis:
     restart: always
+    ports: !override []
     deploy:
       resources:
         limits:
