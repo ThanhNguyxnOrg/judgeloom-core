@@ -388,6 +388,7 @@ class TestRunModeRegressions:
                     "language_id": language.id,
                     "source_code": "print(1)",
                     "stdin": "custom\n",
+                    "expected_output": "expected\n",
                 }
             ),
             content_type="application/json",
@@ -399,9 +400,11 @@ class TestRunModeRegressions:
         submission = Submission.objects.get(pk=payload["id"])
         assert submission.mode == SubmissionMode.RUN
         assert submission.custom_input == "custom\n"
+        assert submission.custom_expected_output == "expected\n"
         assert submission.judge_job.package is None
         assert submission.judge_job.config["mode"] == "run"
         assert submission.judge_job.config["custom_input"] == "custom\n"
+        assert submission.judge_job.config["expected_output"] == "expected\n"
 
         listing = client.get("/api/submissions/")
         assert listing.status_code == 200

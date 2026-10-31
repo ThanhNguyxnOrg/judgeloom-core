@@ -193,6 +193,7 @@ def run_submission(request: Any, payload: SubmissionRunIn) -> SubmissionDetailOu
         source_code=payload.source_code,
         mode=SubmissionMode.RUN,
         custom_input=payload.stdin,
+        expected_output=payload.expected_output,
     )
     return _submission_detail_out(submission, include_private=True)
 

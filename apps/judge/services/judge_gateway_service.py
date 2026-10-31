@@ -206,6 +206,7 @@ class JudgeGatewayService:
             "contest_points": config.get("contest_points"),
             "mode": config.get("mode", "submit"),
             "custom_input": config.get("custom_input", ""),
+            "expected_output": config.get("expected_output", ""),
             "package": package_payload,
             "checker": manifest.get("checker") or {"type": "exact"},
             "cases": cases,

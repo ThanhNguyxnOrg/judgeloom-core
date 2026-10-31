@@ -33,6 +33,7 @@ class Submission(TimestampedModel):
     share_token = models.UUIDField(null=True, blank=True, unique=True)
     mode = models.CharField(max_length=8, choices=SubmissionMode.choices, default=SubmissionMode.SUBMIT)
     custom_input = models.TextField(blank=True, default="")
+    custom_expected_output = models.TextField(blank=True, default="")
     is_pretested = models.BooleanField(default=False)
     judged_on = models.ForeignKey(
         "judge.Judge",

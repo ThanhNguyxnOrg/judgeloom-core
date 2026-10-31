@@ -58,21 +58,22 @@ type Group struct {
 }
 
 type Job struct {
-	JobID         int64    `json:"job_id"`
-	SubmissionID  int64    `json:"submission_id"`
-	Language      string   `json:"language"`
-	Source        string   `json:"source"`
-	Mode          string   `json:"mode"`
-	CustomInput   string   `json:"custom_input"`
-	Limits        Limits   `json:"limits"`
-	ShortCircuit  bool     `json:"short_circuit"`
-	PartialScore  bool     `json:"partial_score"`
-	ContestPoints *float64 `json:"contest_points,omitempty"`
-	Package       Package  `json:"package"`
-	Checker       Checker  `json:"checker"`
-	Cases         []Case   `json:"cases"`
-	Groups        []Group  `json:"groups"`
-	LeaseSeconds  int      `json:"lease_seconds"`
+	JobID          int64    `json:"job_id"`
+	SubmissionID   int64    `json:"submission_id"`
+	Language       string   `json:"language"`
+	Source         string   `json:"source"`
+	Mode           string   `json:"mode"`
+	CustomInput    string   `json:"custom_input"`
+	ExpectedOutput string   `json:"expected_output"`
+	Limits         Limits   `json:"limits"`
+	ShortCircuit   bool     `json:"short_circuit"`
+	PartialScore   bool     `json:"partial_score"`
+	ContestPoints  *float64 `json:"contest_points,omitempty"`
+	Package        Package  `json:"package"`
+	Checker        Checker  `json:"checker"`
+	Cases          []Case   `json:"cases"`
+	Groups         []Group  `json:"groups"`
+	LeaseSeconds   int      `json:"lease_seconds"`
 }
 
 type CaseResult struct {

@@ -44,6 +44,7 @@ class SubmissionService:
         contest_participation: Any | None = None,
         mode: str = SubmissionMode.SUBMIT,
         custom_input: str = "",
+        expected_output: str = "",
     ) -> Submission:
         """Create a submission or ephemeral run and enqueue it for judging.
 
@@ -55,6 +56,7 @@ class SubmissionService:
             contest_participation: Optional contest participation object.
             mode: ``submit`` for scored submissions or ``run`` for custom input.
             custom_input: Standard input for a run.
+            expected_output: Optional expected stdout for a run.
 
         Returns:
             Persisted submission instance.
@@ -66,8 +68,10 @@ class SubmissionService:
         if mode == SubmissionMode.RUN:
             if len(custom_input.encode("utf-8")) > MAX_RUN_INPUT_BYTES:
                 raise SubmissionError("Custom input exceeds the maximum allowed size.")
-        elif custom_input:
-            raise SubmissionError("Custom input is only valid for runs.")
+            if len(expected_output.encode("utf-8")) > MAX_RUN_INPUT_BYTES:
+                raise SubmissionError("Expected output exceeds the maximum allowed size.")
+        elif custom_input or expected_output:
+            raise SubmissionError("Custom input and expected output are only valid for runs.")
         cls._validate_problem_access(user=user, problem=problem)
         cls._validate_language(problem=problem, language=language)
         if mode == SubmissionMode.RUN:
@@ -86,6 +90,7 @@ class SubmissionService:
             contest_participation=contest_participation,
             mode=mode,
             custom_input=custom_input,
+            expected_output=expected_output,
         )
 
         with transaction.atomic():
@@ -96,6 +101,7 @@ class SubmissionService:
                 contest_participation=contest_participation,
                 mode=mode,
                 custom_input=custom_input,
+                custom_expected_output=expected_output,
                 status=SubmissionStatus.QUEUED,
             )
             SubmissionSource.objects.create(submission=submission, source_code=source_code)
@@ -289,6 +295,7 @@ class SubmissionService:
                     contest_participation=submission.contest_participation,
                     mode=submission.mode,
                     custom_input=submission.custom_input,
+                    expected_output=submission.custom_expected_output,
                 ),
             )
         job.status = JudgeJobStatus.QUEUED
@@ -306,6 +313,7 @@ class SubmissionService:
             contest_participation=submission.contest_participation,
             mode=submission.mode,
             custom_input=submission.custom_input,
+            expected_output=submission.custom_expected_output,
         )
         job.save(
             update_fields=[
@@ -476,6 +484,7 @@ class SubmissionService:
         contest_participation: Any | None,
         mode: str = SubmissionMode.SUBMIT,
         custom_input: str = "",
+        expected_output: str = "",
     ) -> dict[str, Any]:
         """Snapshot limits and scoring mode for one judge job."""
 
@@ -487,6 +496,7 @@ class SubmissionService:
             "partial_score": bool(manifest.get("partial_score", problem.partial_score)),
             "mode": mode,
             "custom_input": custom_input,
+            "expected_output": expected_output,
         }
 
         from apps.problems.models import LanguageLimit

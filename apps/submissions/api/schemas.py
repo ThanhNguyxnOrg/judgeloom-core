@@ -20,6 +20,7 @@ class SubmissionRunIn(Schema):
     language_id: int
     source_code: str
     stdin: str = ""
+    expected_output: str = ""
 
 
 class SubmissionListOut(Schema):

@@ -67,6 +67,22 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 			Feedback:   run.Error,
 			Output:     truncate(run.Stdout, 4096),
 		}
+		if job.ExpectedOutput != "" && run.Status == "AC" {
+			checked, err := (checker.ExactChecker{}).Check(
+				ctx,
+				api.Checker{Type: "exact"},
+				nil,
+				[]byte(job.ExpectedOutput),
+				run.Stdout,
+				timeLimit,
+				memoryBytes,
+			)
+			if err != nil {
+				return nil, err
+			}
+			result.Status = checked.Status
+			result.Feedback = checked.Message
+		}
 		return []api.CaseResult{result}, nil
 	}
 
