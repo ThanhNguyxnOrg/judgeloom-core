@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebSocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from apps.submissions.models import Submission
 from apps.submissions.services import SubmissionService
 
 
-class SubmissionConsumer(AsyncJsonWebSocketConsumer):
+class SubmissionConsumer(AsyncJsonWebsocketConsumer):
     """Streams real-time submission updates to clients via WebSocket."""
 
     group_name: str
@@ -58,10 +58,25 @@ class SubmissionConsumer(AsyncJsonWebSocketConsumer):
             await self.send_json({"type": "pong"})
 
     async def broadcast(self, event: dict[str, Any]) -> None:
-        """Forward channel-layer events to the WebSocket client.
+        """Forward legacy channel-layer events to the WebSocket client.
 
         Args:
             event: Channel event payload containing update data.
         """
         payload = event.get("payload", {})
         await self.send_json(payload)
+
+    async def submission_status(self, event: dict[str, Any]) -> None:
+        """Forward a submission status event."""
+
+        await self.send_json(event.get("payload", {}))
+
+    async def submission_case(self, event: dict[str, Any]) -> None:
+        """Forward a per-test-case event."""
+
+        await self.send_json(event.get("payload", {}))
+
+    async def submission_finished(self, event: dict[str, Any]) -> None:
+        """Forward a final submission event."""
+
+        await self.send_json(event.get("payload", {}))

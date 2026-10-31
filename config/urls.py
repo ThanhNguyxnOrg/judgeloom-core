@@ -13,7 +13,9 @@ from django.contrib import admin
 from django.urls import include, path
 from ninja import NinjaAPI
 
+from apps.judge.api.gateway import router as judge_gateway_router
 from core.exceptions import configure_api_exception_handlers
+from core.health import router as health_router
 
 # ─── API ────────────────────────────────────────────────────────────────────
 
@@ -33,11 +35,12 @@ api.add_router("/problems/", "apps.problems.api.router", tags=["problems"])
 api.add_router("/submissions/", "apps.submissions.api.router", tags=["submissions"])
 api.add_router("/contests/", "apps.contests.api.router", tags=["contests"])
 api.add_router("/judge/", "apps.judge.api.router", tags=["judge"])
+api.add_router("/v1/judge/", judge_gateway_router, tags=["judge-gateway"])
 api.add_router("/content/", "apps.content.api.router", tags=["content"])
 api.add_router("/tickets/", "apps.tickets.api.router", tags=["tickets"])
 api.add_router("/ratings/", "apps.ratings.api.router", tags=["ratings"])
 api.add_router("/tags/", "apps.tags.api.router", tags=["tags"])
-api.add_router("/health/", "core.health", tags=["health"])
+api.add_router("/health/", health_router, tags=["health"])
 
 
 # ─── URL Patterns ──────────────────────────────────────────────────────────

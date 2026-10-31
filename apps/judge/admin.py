@@ -2,18 +2,38 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.judge.models import Judge, Language, RuntimeVersion
+from apps.judge.models import Judge, JudgeJob, Language, RuntimeVersion
 
 
 @admin.register(Judge)
 class JudgeAdmin(admin.ModelAdmin):
     """Admin configuration for judge worker records."""
 
-    list_display = ("name", "online", "is_blocked", "ping", "load", "updated_at")
-    list_filter = ("online", "is_blocked", "created_at")
+    list_display = ("name", "online", "is_blocked", "protocol_version", "current_load", "last_seen", "updated_at")
+    list_filter = ("online", "is_blocked", "protocol_version", "created_at")
     search_fields = ("name", "hostname", "description")
     filter_horizontal = ("problems", "runtimes")
-    readonly_fields = ("created_at", "updated_at", "start_time")
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "start_time",
+        "last_seen",
+        "protocol_version",
+        "capabilities",
+        "current_load",
+        "token_prefix",
+    )
+
+
+@admin.register(JudgeJob)
+class JudgeJobAdmin(admin.ModelAdmin):
+    """Read-mostly admin for judge jobs."""
+
+    list_display = ("submission", "status", "priority", "claimed_by", "attempts", "lease_expires_at", "created_at")
+    list_filter = ("status", "priority", "created_at")
+    search_fields = ("submission__id", "submission__problem__code", "claimed_by__name")
+    autocomplete_fields = ("submission", "package", "language", "claimed_by")
+    readonly_fields = ("created_at", "updated_at", "claimed_at", "started_at", "finished_at")
 
 
 @admin.register(Language)

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from channels.generic.websocket import AsyncJsonWebSocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 
-class JudgeStatusConsumer(AsyncJsonWebSocketConsumer):
+class JudgeStatusConsumer(AsyncJsonWebsocketConsumer):
     """Streams judge health/status and queue metrics to staff clients."""
 
     group_name: str

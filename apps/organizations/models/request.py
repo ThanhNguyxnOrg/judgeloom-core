@@ -45,7 +45,7 @@ class OrganizationRequest(TimestampedModel):
         verbose_name_plural = "Organization Requests"
         indexes = [
             models.Index(fields=["status"], name="organizations_req_status_idx"),
-            models.Index(fields=["organization", "status"], name="organizations_req_org_status_idx"),
+            models.Index(fields=["organization", "status"], name="org_req_org_status_idx"),
         ]
         constraints = [
             models.UniqueConstraint(

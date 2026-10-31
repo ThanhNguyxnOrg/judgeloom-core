@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -9,13 +9,13 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from apps.judge.models import JudgeJob, JudgeJobStatus
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from apps.submissions.models import Submission, SubmissionSource, SubmissionTestCase
 from core.events import (
-    SUBMISSION_CREATED,
     SUBMISSION_JUDGED,
     SUBMISSION_JUDGING,
-    SUBMISSION_REJUDGED,
+    SUBMISSION_STATUS,
     Event,
     publish_sync,
 )
@@ -59,6 +59,17 @@ class SubmissionService:
         cls._validate_language(problem=problem, language=language)
         cls._check_rate_limit(user=user)
 
+        package = problem.packages.filter(is_active=True).first()
+        if package is None:
+            raise SubmissionError("No active test data package is available for this problem.")
+
+        config = cls._build_job_config(
+            problem=problem,
+            language=language,
+            package=package,
+            contest_participation=contest_participation,
+        )
+
         with transaction.atomic():
             submission = Submission.objects.create(
                 user=user,
@@ -68,12 +79,18 @@ class SubmissionService:
                 status=SubmissionStatus.QUEUED,
             )
             SubmissionSource.objects.create(submission=submission, source_code=source_code)
+            JudgeJob.objects.create(
+                submission=submission,
+                package=package,
+                language=language,
+                config=config,
+            )
 
-        cls._publish_event(SUBMISSION_CREATED, {"submission_id": submission.id, "status": submission.status})
-
-        from apps.submissions.tasks import judge_submission
-
-        cast("Any", judge_submission).delay(submission.id)
+        cls._publish_event(
+            SUBMISSION_STATUS,
+            {"submission_id": submission.id, "status": submission.status},
+            group=f"submission_{submission.id}",
+        )
         return submission
 
     @classmethod
@@ -141,12 +158,19 @@ class SubmissionService:
         return author_id == user.id
 
     @classmethod
+    @transaction.atomic
     def rejudge_submission(cls, submission: Submission) -> None:
-        """Reset a submission and enqueue it for rejudging.
+        """Reset a submission and queue its job for rejudging.
 
         Args:
             submission: Submission to reset and queue.
         """
+        submission = Submission.objects.select_for_update().get(pk=submission.pk)
+        job = JudgeJob.objects.select_for_update().filter(submission=submission).first()
+        package = job.package if job is not None else submission.problem.packages.filter(is_active=True).first()
+        if package is None:
+            raise SubmissionError("No active test data package is available for this problem.")
+
         submission.status = SubmissionStatus.QUEUED
         submission.result = None
         submission.points = 0.0
@@ -157,6 +181,8 @@ class SubmissionService:
         submission.current_testcase = 0
         submission.error_message = ""
         submission.judged_at = None
+        submission.judged_on = None
+        submission.subtask_scores = {}
         submission.save(
             update_fields=[
                 "status",
@@ -169,16 +195,59 @@ class SubmissionService:
                 "current_testcase",
                 "error_message",
                 "judged_at",
+                "judged_on",
+                "subtask_scores",
                 "updated_at",
             ]
         )
-        submission.test_cases.all().delete()
+        SubmissionTestCase.objects.filter(submission=submission).delete()
 
-        cls._publish_event(SUBMISSION_REJUDGED, {"submission_id": submission.id})
+        if job is None:
+            job = JudgeJob.objects.create(
+                submission=submission,
+                package=package,
+                language=submission.language,
+                config=cls._build_job_config(
+                    problem=submission.problem,
+                    language=submission.language,
+                    package=package,
+                    contest_participation=submission.contest_participation,
+                ),
+            )
+        job.status = JudgeJobStatus.QUEUED
+        job.attempts = 0
+        job.claimed_by = None
+        job.lease_expires_at = None
+        job.claimed_at = None
+        job.started_at = None
+        job.finished_at = None
+        job.last_error = ""
+        job.config = cls._build_job_config(
+            problem=submission.problem,
+            language=submission.language,
+            package=package,
+            contest_participation=submission.contest_participation,
+        )
+        job.save(
+            update_fields=[
+                "status",
+                "attempts",
+                "claimed_by",
+                "lease_expires_at",
+                "claimed_at",
+                "started_at",
+                "finished_at",
+                "last_error",
+                "config",
+                "updated_at",
+            ]
+        )
 
-        from apps.submissions.tasks import judge_submission
-
-        cast("Any", judge_submission).delay(submission.id)
+        cls._publish_event(
+            SUBMISSION_STATUS,
+            {"submission_id": submission.id, "status": SubmissionStatus.QUEUED},
+            group=f"submission_{submission.id}",
+        )
 
     @classmethod
     def rejudge_problem(cls, problem: Any) -> int:
@@ -190,29 +259,10 @@ class SubmissionService:
         Returns:
             Number of queued submissions.
         """
-        submission_ids = list(Submission.objects.filter(problem=problem).values_list("id", flat=True))
-        if not submission_ids:
-            return 0
-
-        Submission.objects.filter(id__in=submission_ids).update(
-            status=SubmissionStatus.QUEUED,
-            result=None,
-            points=0.0,
-            time_used=0.0,
-            memory_used=0,
-            case_total=0,
-            case_passed=0,
-            current_testcase=0,
-            error_message="",
-            judged_at=None,
-            judged_on=None,
-        )
-        SubmissionTestCase.objects.filter(submission_id__in=submission_ids).delete()
-
-        from apps.submissions.tasks import rejudge_submissions
-
-        cast("Any", rejudge_submissions).delay(submission_ids)
-        return len(submission_ids)
+        submissions = list(Submission.objects.filter(problem=problem))
+        for submission in submissions:
+            cls.rejudge_submission(submission)
+        return len(submissions)
 
     @classmethod
     def update_submission_result(cls, submission_id: int, result_data: dict[str, Any]) -> Submission:
@@ -338,6 +388,38 @@ class SubmissionService:
         return test_case
 
     @classmethod
+    def _build_job_config(
+        cls,
+        *,
+        problem: Any,
+        language: Language,
+        package: Any,
+        contest_participation: Any | None,
+    ) -> dict[str, Any]:
+        """Snapshot limits and scoring mode for one judge job."""
+
+        manifest = package.manifest or {}
+        config: dict[str, Any] = {
+            "time_limit": problem.time_limit,
+            "memory_limit": problem.memory_limit,
+            "short_circuit": bool(manifest.get("short_circuit", problem.short_circuit)),
+            "partial_score": bool(manifest.get("partial_score", problem.partial_score)),
+        }
+
+        from apps.problems.models import LanguageLimit
+
+        language_limit = LanguageLimit.objects.filter(problem=problem, language=language).first()
+        if language_limit is not None:
+            config["time_limit"] = language_limit.time_limit
+            config["memory_limit"] = language_limit.memory_limit
+
+        if contest_participation is not None:
+            contest_problem = contest_participation.contest.contest_problems.filter(problem=problem).first()
+            if contest_problem is not None:
+                config["contest_points"] = contest_problem.points
+        return config
+
+    @classmethod
     def _validate_language(cls, problem: Any, language: Language) -> None:
         """Validate language availability and problem compatibility.
 
@@ -380,14 +462,15 @@ class SubmissionService:
             raise SubmissionError("Submission rate limit exceeded. Try again shortly.")
 
     @classmethod
-    def _publish_event(cls, event_type: str, payload: dict[str, Any]) -> None:
+    def _publish_event(cls, event_type: str, payload: dict[str, Any], *, group: str | None = None) -> None:
         """Publish a domain event through the configured event bus.
 
         Args:
             event_type: Event type constant (e.g. ``SUBMISSION_CREATED``).
             payload: Event payload data.
+            group: Optional explicit WebSocket group.
         """
-        publish_sync(Event(type=event_type, payload=payload))
+        publish_sync(Event(type=event_type, payload=payload), group=group)
 
     @classmethod
     def _broadcast(cls, submission_id: int, payload: dict[str, Any]) -> None:
