@@ -11,6 +11,7 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
+from django.test import Client
 
 from apps.judge.models import Judge
 from tests.factories import JudgeFactory
@@ -76,4 +77,28 @@ class TestJudgeModel:
         judge = Judge.objects.get(name="token-command-judge")
         assert judge.token_hash
         assert judge.token_prefix
+        assert judge.auth_key == ""
         assert "Token (shown once):" in output.getvalue()
+
+
+@pytest.mark.django_db
+class TestJudgeMetrics:
+    def test_metrics_require_staff(self, user):
+        client = Client()
+        client.force_login(user)
+        assert client.get("/api/judge/metrics").status_code == 403
+
+    def test_metrics_report_judge_and_queue_state(self, admin_user):
+        JudgeFactory(online=True, is_blocked=False)
+        JudgeFactory(online=False, is_blocked=True)
+        client = Client()
+        client.force_login(admin_user)
+
+        response = client.get("/api/judge/metrics")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["online_judges"] == 1
+        assert payload["blocked_judges"] == 1
+        assert payload["queued"] == 0
+        assert payload["oldest_queued_seconds"] == 0
+        assert payload["leases_expiring_60s"] == 0

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
+from django.db.models import Min
+from django.utils import timezone
 from ninja import Router
 
-from apps.judge.api.schemas import JudgeDetailOut, JudgeOut, LanguageOut
+from apps.judge.api.schemas import JudgeDetailOut, JudgeMetricsOut, JudgeOut, LanguageOut
+from apps.judge.models import Judge, JudgeJob, JudgeJobStatus
 from apps.judge.services import JudgeService
 from core.exceptions import PermissionDeniedError
 
@@ -100,6 +104,36 @@ def judge_detail(request: HttpRequest, name: str) -> JudgeDetailOut:
         languages=list(judge.runtimes.values_list("key", flat=True)),
         problems=list(judge.problems.values_list("code", flat=True)),
         capabilities=judge.capabilities or {},
+    )
+
+
+@router.get("/metrics", response=JudgeMetricsOut)
+def judge_metrics(request: HttpRequest) -> JudgeMetricsOut:
+    """Return aggregate queue and judge health metrics for staff."""
+
+    _require_staff(request)
+    now = timezone.now()
+    queued = JudgeJob.objects.filter(status=JudgeJobStatus.QUEUED)
+    claimed = JudgeJob.objects.filter(status=JudgeJobStatus.CLAIMED)
+    running = JudgeJob.objects.filter(status=JudgeJobStatus.RUNNING)
+    oldest = queued.aggregate(oldest=Min("created_at"))["oldest"]
+
+    return JudgeMetricsOut(
+        queued=queued.count(),
+        claimed=claimed.count(),
+        running=running.count(),
+        failed_last_24h=JudgeJob.objects.filter(
+            status=JudgeJobStatus.FAILED,
+            finished_at__gte=now - timedelta(hours=24),
+        ).count(),
+        online_judges=Judge.objects.filter(online=True, is_blocked=False).count(),
+        blocked_judges=Judge.objects.filter(is_blocked=True).count(),
+        oldest_queued_seconds=max(0, int((now - oldest).total_seconds())) if oldest else 0,
+        leases_expiring_60s=JudgeJob.objects.filter(
+            status__in=[JudgeJobStatus.CLAIMED, JudgeJobStatus.RUNNING],
+            lease_expires_at__gt=now,
+            lease_expires_at__lte=now + timedelta(seconds=60),
+        ).count(),
     )
 
 

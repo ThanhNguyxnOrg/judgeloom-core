@@ -32,6 +32,19 @@ class JudgeDetailOut(JudgeOut):
     capabilities: dict[str, Any]
 
 
+class JudgeMetricsOut(Schema):
+    """Aggregate queue and judge health metrics."""
+
+    queued: int
+    claimed: int
+    running: int
+    failed_last_24h: int
+    online_judges: int
+    blocked_judges: int
+    oldest_queued_seconds: int
+    leases_expiring_60s: int
+
+
 class LanguageOut(Schema):
     """Language payload used by judge APIs."""
 
