@@ -174,6 +174,8 @@ class TestScoringService:
         assert summary.points == 90.0
 
     def test_partial_credit_yields_pt(self, problem):
+        problem.partial_score = True
+        problem.save(update_fields=["partial_score"])
         manifest = {
             "cases": [
                 {"input": "data/01.in", "answer": "data/01.ans", "points": 50, "group": "g"},

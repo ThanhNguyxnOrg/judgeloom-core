@@ -92,6 +92,15 @@ class ScoringService:
         case_total = len(manifest_cases) or len(cases)
 
         result = ScoringService._aggregate_result(statuses, points, total_possible, case_total, case_passed)
+        if not bool(manifest.get("partial_score", False)) and result not in {
+            SubmissionResult.AC,
+            SubmissionResult.CE,
+            SubmissionResult.IE,
+        }:
+            points = 0.0
+            subtask_scores = {group_id: 0.0 for group_id in subtask_scores}
+            if result == SubmissionResult.PARTIAL:
+                result = SubmissionResult.WA
         status = SubmissionStatus.ERROR if result in {SubmissionResult.CE, SubmissionResult.IE} else SubmissionStatus.COMPLETED
 
         return ScoreSummary(

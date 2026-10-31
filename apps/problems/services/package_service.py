@@ -236,6 +236,8 @@ class PackageImportService:
         result.setdefault("time_limit", problem.time_limit)
         result.setdefault("memory_limit", problem.memory_limit)
         result.setdefault("checker", {"type": "exact"})
+        result.setdefault("partial_score", bool(problem.partial_score))
+        result.setdefault("short_circuit", bool(problem.short_circuit))
         result["cases"] = [
             {
                 "id": str(index),
