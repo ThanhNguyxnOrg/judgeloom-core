@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/api"
+	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/runner"
 )
 
 type Executor interface {
@@ -130,10 +131,15 @@ func (w *Worker) heartbeat(ctx context.Context) {
 }
 
 func (w *Worker) failJob(ctx context.Context, job *api.Job, err error) {
+	result := "IE"
+	var compileErr *runner.CompileError
+	if errors.As(err, &compileErr) {
+		result = "CE"
+	}
 	if failErr := w.Client.Fail(ctx, job.JobID, api.FailRequest{
 		PackageSHA256: job.Package.SHA256,
 		Status:        "error",
-		Result:        "IE",
+		Result:        result,
 		ErrorMessage:  err.Error(),
 	}); failErr != nil {
 		log.Printf("job %d fail report failed: %v", job.JobID, failErr)

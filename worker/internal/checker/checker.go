@@ -109,7 +109,7 @@ func normalize(data []byte) string {
 	for index, line := range lines {
 		lines[index] = strings.TrimRight(line, " \t")
 	}
-	return strings.Join(lines, "\n")
+	return strings.TrimRight(strings.Join(lines, "\n"), "\n")
 }
 
 func checkerMessage(result executor.RunResult) string {

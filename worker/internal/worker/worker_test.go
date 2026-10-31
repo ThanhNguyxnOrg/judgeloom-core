@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/api"
+	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/runner"
 )
 
 type fakeClient struct {
@@ -20,6 +21,7 @@ type fakeClient struct {
 	caseCalls   int
 	finished    int
 	failed      int
+	failResult  string
 	job         *api.Job
 }
 
@@ -69,10 +71,11 @@ func (f *fakeClient) Finish(_ context.Context, _ int64, _ api.FinishRequest) err
 	return nil
 }
 
-func (f *fakeClient) Fail(_ context.Context, _ int64, _ api.FailRequest) error {
+func (f *fakeClient) Fail(_ context.Context, _ int64, req api.FailRequest) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.failed++
+	f.failResult = req.Result
 	return nil
 }
 
@@ -147,6 +150,19 @@ func TestWorkerFailsJobWhenExecutorErrors(t *testing.T) {
 	defer client.mu.Unlock()
 	if client.started != 1 || client.finished != 0 || client.failed != 1 {
 		t.Fatalf("unexpected lifecycle counts: %+v", client)
+	}
+}
+
+func TestWorkerReportsCompileErrorAsCE(t *testing.T) {
+	client := &fakeClient{job: testJob()}
+	executor := fakeExecutor{err: &runner.CompileError{Message: "bad"}}
+
+	runWorker(t, client, executor)
+
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	if client.failed != 1 || client.failResult != "CE" {
+		t.Fatalf("unexpected failure report: failed=%d result=%q", client.failed, client.failResult)
 	}
 }
 
