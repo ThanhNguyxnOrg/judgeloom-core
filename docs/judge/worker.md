@@ -26,7 +26,8 @@ python manage.py import_problem_package aplusb path/to/aplusb.zip
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `JUDGELOOM_API_URL` | `http://localhost:8000/api/v1` | Control-plane base URL |
+| `JUDGELOOM_API_URL` | `http://localhost:8000/api/v1` | Control-plane base URL; production must be HTTPS |
+| `WORKER_ALLOW_INSECURE_HTTP` | `false` | Permit a plaintext control-plane URL for local development only |
 | `JUDGELOOM_JUDGE_TOKEN` | required | Bearer token from `create_judge_token` |
 | `JUDGELOOM_JUDGE_NAME` | required | Must match the judge record name |
 | `GO_JUDGE_URL` | `http://localhost:5050` | go-judge REST endpoint |

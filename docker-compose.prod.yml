@@ -129,6 +129,11 @@ services:
           cpus: "2.0"
           memory: 2G
 
+  judge-worker:
+    environment:
+      JUDGELOOM_API_URL: ${JUDGELOOM_API_URL:?set an HTTPS control-plane URL}
+      WORKER_ALLOW_INSECURE_HTTP: "false"
+
   redis:
     restart: always
     ports: !override []
