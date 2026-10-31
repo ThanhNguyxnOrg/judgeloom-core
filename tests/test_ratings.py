@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import pytest
 
+from apps.contests.constants import ParticipationStatus
+from apps.ratings.models import Rating
+from apps.ratings.services.rating_service import RatingService
 from tests.factories import (
     ContestFactory,
     ContestParticipationFactory,
@@ -63,6 +66,79 @@ class TestRatingModel:
         )
         result = str(rating)
         assert "-50" in result
+
+
+@pytest.mark.django_db
+class TestRatingCalculation:
+    def test_unrated_contest_produces_no_ratings(self):
+        contest = ContestFactory(is_rated=False)
+        user = UserFactory()
+        ContestParticipationFactory(user=user, contest=contest)
+
+        assert RatingService.calculate_ratings(contest) == []
+        assert Rating.objects.filter(contest=contest).count() == 0
+
+    def test_only_live_non_disqualified_participants_are_rated(self):
+        contest = ContestFactory(is_rated=True, rate_all=True)
+        live = UserFactory()
+        virtual = UserFactory()
+        disqualified = UserFactory()
+        ContestParticipationFactory(user=live, contest=contest)
+        ContestParticipationFactory(
+            user=virtual,
+            contest=contest,
+            status=ParticipationStatus.VIRTUAL,
+            virtual_start=contest.start_time,
+        )
+        ContestParticipationFactory(user=disqualified, contest=contest, is_disqualified=True)
+
+        rows = RatingService.calculate_ratings(contest)
+
+        assert {row.user_id for row in rows} == {live.id}
+        virtual.refresh_from_db()
+        disqualified.refresh_from_db()
+        assert virtual.rating == 0
+        assert disqualified.rating == 0
+
+    def test_rate_excluded_user_is_not_rated(self):
+        contest = ContestFactory(is_rated=True, rate_all=True)
+        user = UserFactory()
+        ContestParticipationFactory(user=user, contest=contest)
+        contest.rate_exclude.add(user)
+
+        rows = RatingService.calculate_ratings(contest)
+
+        assert rows == []
+        assert Rating.objects.filter(contest=contest).count() == 0
+
+    def test_calculation_is_idempotent_without_force(self):
+        contest = ContestFactory(is_rated=True, rate_all=True)
+        user = UserFactory()
+        ContestParticipationFactory(user=user, contest=contest)
+
+        first = RatingService.calculate_ratings(contest)
+        user.refresh_from_db()
+        rating_after_first = user.rating
+        second = RatingService.calculate_ratings(contest)
+        user.refresh_from_db()
+
+        assert [row.pk for row in first] == [row.pk for row in second]
+        assert Rating.objects.filter(contest=contest).count() == 1
+        assert user.rating == rating_after_first
+
+    def test_force_recalculation_does_not_double_apply(self):
+        contest = ContestFactory(is_rated=True, rate_all=True)
+        user = UserFactory()
+        ContestParticipationFactory(user=user, contest=contest)
+
+        RatingService.calculate_ratings(contest)
+        user.refresh_from_db()
+        rating_after_first = user.rating
+        RatingService.calculate_ratings(contest, force=True)
+        user.refresh_from_db()
+
+        assert user.rating == rating_after_first
+        assert Rating.objects.filter(contest=contest).count() == 1
 
 
 @pytest.mark.django_db

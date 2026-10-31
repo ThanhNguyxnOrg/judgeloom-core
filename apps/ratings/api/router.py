@@ -33,14 +33,14 @@ def contest_rating_changes(request, contest_key: str) -> list[dict[str, Any]]:
 
 
 @router.post("/calculate/{contest_key}", response=list[RatingOut])
-def calculate_contest_ratings(request, contest_key: str) -> list[dict[str, Any]]:
+def calculate_contest_ratings(request, contest_key: str, force: bool = False) -> list[dict[str, Any]]:
     """Trigger rating calculation for a contest. Superuser-only."""
 
     if not is_superuser(request):
         raise ContestAccessDeniedError("Only superusers can calculate ratings.")
 
     contest = get_object_or_404(Contest, key=contest_key)
-    rows = RatingService.calculate_ratings(contest)
+    rows = RatingService.calculate_ratings(contest, force=force)
     return [
         {
             "user_id": row.user_id,

@@ -305,6 +305,7 @@ JUDGELOOM = {
     # Contest defaults
     "DEFAULT_CONTEST_DURATION": 18000,  # seconds (5 hours)
     "RATING_FLOOR": 0,
+    "RATING_CEILING": 4000,
     "RATING_INITIAL": 1500,
     # Content rendering
     "MARKDOWN_EXTENSIONS": [

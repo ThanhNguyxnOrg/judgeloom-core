@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
+from apps.contests.constants import ParticipationStatus
 from apps.contests.models import Contest
 from apps.contests.services.ranking_service import RankingService
 from apps.ratings.models import Rating
@@ -18,42 +19,71 @@ class RatingService:
 
     @staticmethod
     @transaction.atomic
-    def calculate_ratings(contest: Contest) -> list[Rating]:
+    def calculate_ratings(contest: Contest, *, force: bool = False) -> list[Rating]:
         """Calculate and persist rating changes for a contest.
 
         Args:
             contest: Rated contest with finalized ranking.
+            force: Recompute an existing contest rating instead of returning it.
 
         Returns:
             Created/updated rating rows.
         """
 
-        ranking = RankingService.get_contest_ranking(contest)
-        participants = [row for row in ranking if row.get("participation_id")]
-        if not participants:
+        if not contest.is_rated:
             return []
 
-        user_model = get_user_model()
-        users_by_id = {
-            user.id: user for user in user_model.objects.filter(id__in=[entry["user_id"] for entry in participants])
+        existing_rows = list(Rating.objects.filter(contest=contest).select_related("user").order_by("rank", "user_id"))
+        if existing_rows and not force:
+            return existing_rows
+
+        previous_by_user = {row.user_id: row for row in existing_rows}
+        excluded_user_ids = set(contest.rate_exclude.values_list("id", flat=True))
+        participations = {
+            participation.id: participation
+            for participation in contest.participations.select_related("user").filter(
+                is_disqualified=False,
+                status=ParticipationStatus.LIVE,
+            )
         }
 
+        ranking = RankingService.get_contest_ranking(contest)
         contestants: list[dict[str, Any]] = []
-        for entry in participants:
-            user = users_by_id[entry["user_id"]]
+        for entry in ranking:
+            participation = participations.get(entry.get("participation_id"))
+            if participation is None:
+                continue
+            user = participation.user
+            if user.id in excluded_user_ids:
+                continue
+            if not contest.rate_all and not participation.submissions.exists():
+                continue
+
+            previous = previous_by_user.get(user.id)
+            rating_before = int(getattr(user, "rating", RatingService._initial_rating()))
+            if previous is not None:
+                rating_before -= previous.rating_after - previous.rating_before
+
             contestants.append(
                 {
                     "user": user,
                     "user_id": user.id,
-                    "participation_id": entry["participation_id"],
+                    "participation_id": participation.id,
                     "rank": int(entry["rank"]),
-                    "rating_before": int(getattr(user, "rating", RatingService._initial_rating())),
+                    "rating_before": rating_before,
                     "score": float(entry["score"]),
                 }
             )
 
+        if not contestants:
+            Rating.objects.filter(contest=contest).delete()
+            return []
+
         updates = RatingService._elo_update(contestants)
         rating_rows: list[Rating] = []
+
+        if force:
+            Rating.objects.filter(contest=contest).delete()
 
         participation_model = contest.participations.model
 
@@ -200,7 +230,10 @@ class RatingService:
 
             k = k_base * (1.25 if rating < 2000 else 1.0)
             delta = round(k * (actual - expected))
-            rating_after = max(RatingService._rating_floor(), int(rating) + delta)
+            rating_after = min(
+                RatingService._rating_ceiling(),
+                max(RatingService._rating_floor(), int(rating) + delta),
+            )
             performance = round(rating + 400.0 * (actual - expected))
 
             contestant["rating_after"] = rating_after
@@ -221,3 +254,9 @@ class RatingService:
         """Return configured rating floor."""
 
         return int(getattr(settings, "JUDGELOOM", {}).get("RATING_FLOOR", 0))
+
+    @staticmethod
+    def _rating_ceiling() -> int:
+        """Return configured rating ceiling."""
+
+        return int(getattr(settings, "JUDGELOOM", {}).get("RATING_CEILING", 4000))
