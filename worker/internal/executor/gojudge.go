@@ -24,6 +24,7 @@ type RunSpec struct {
 	Env           []string
 	StdIn         []byte
 	CopyIn        map[string][]byte
+	CopyInCached  map[string]string
 	CopyOutCached []string
 	CPUTime       time.Duration
 	ClockTime     time.Duration
@@ -78,7 +79,7 @@ func (g *GoJudge) runOnce(ctx context.Context, spec RunSpec) (RunResult, error) 
 			ClockTimeLimit: uint64(maxDuration(spec.ClockTime, spec.CPUTime*2)),
 			MemoryLimit:    uint64(maxInt64(spec.MemoryBytes, 0)),
 			ProcLimit:      uint64(maxInt(spec.ProcLimit, 1)),
-			CopyIn:         copyInFiles(spec.CopyIn),
+			CopyIn:         copyInFiles(spec.CopyIn, spec.CopyInCached),
 			CopyOutCached:  copyOutCached(spec.CopyOutCached),
 		}},
 	}
@@ -149,7 +150,12 @@ type cmdSpec struct {
 
 type fileSpec struct {
 	Memory *memoryFile `json:"memory,omitempty"`
+	Cached *cachedFile `json:"cached,omitempty"`
 	Pipe   *pipeFile   `json:"pipe,omitempty"`
+}
+
+type cachedFile struct {
+	FileID string `json:"fileID"`
 }
 
 type memoryFile struct {
@@ -189,13 +195,16 @@ func pipeOutput(name string) fileSpec {
 	return fileSpec{Pipe: &pipeFile{Name: name, Max: 16 << 20}}
 }
 
-func copyInFiles(files map[string][]byte) map[string]fileSpec {
-	if len(files) == 0 {
+func copyInFiles(files map[string][]byte, cached map[string]string) map[string]fileSpec {
+	if len(files) == 0 && len(cached) == 0 {
 		return nil
 	}
-	result := make(map[string]fileSpec, len(files))
+	result := make(map[string]fileSpec, len(files)+len(cached))
 	for name, content := range files {
 		result[name] = memoryInput(content)
+	}
+	for name, fileID := range cached {
+		result[name] = fileSpec{Cached: &cachedFile{FileID: fileID}}
 	}
 	return result
 }
