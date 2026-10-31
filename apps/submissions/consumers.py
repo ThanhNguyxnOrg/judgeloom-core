@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebSocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from apps.submissions.models import Submission
 from apps.submissions.services import SubmissionService
 
 
-class SubmissionConsumer(AsyncJsonWebSocketConsumer):
+class SubmissionConsumer(AsyncJsonWebsocketConsumer):
     """Streams real-time submission updates to clients via WebSocket."""
 
     group_name: str

@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from channels.db import database_sync_to_async
-from channels.generic.websocket import AsyncJsonWebSocketConsumer
+from channels.generic.websocket import AsyncJsonWebsocketConsumer
 
 from apps.contests.models import Contest
 from apps.contests.services import ContestService
 from core.events import CONTEST_ENDED, CONTEST_RANKING_UPDATED, CONTEST_STARTED
 
 
-class ContestConsumer(AsyncJsonWebSocketConsumer):
+class ContestConsumer(AsyncJsonWebsocketConsumer):
     """Streams live contest updates (ranking and lifecycle events) to clients."""
 
     contest_key: str
