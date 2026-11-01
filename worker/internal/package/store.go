@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -98,7 +99,7 @@ func (s *Store) Cleanup(maxAge time.Duration) error {
 	defer s.mu.Unlock()
 
 	entries, err := os.ReadDir(s.Root)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
