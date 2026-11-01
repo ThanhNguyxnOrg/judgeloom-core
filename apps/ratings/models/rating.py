@@ -17,9 +17,10 @@ class Rating(TimestampedModel):
     rank = models.PositiveIntegerField()
     rating_before = models.IntegerField()
     rating_after = models.IntegerField()
+    mean = models.FloatField(default=1500.0)
     volatility_before = models.IntegerField(default=0)
     volatility_after = models.IntegerField(default=0)
-    performance = models.IntegerField(default=0)
+    performance = models.FloatField(default=0.0)
 
     class Meta:
         db_table = "ratings_rating"

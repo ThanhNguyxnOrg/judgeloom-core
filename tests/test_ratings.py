@@ -12,6 +12,7 @@ from django.test import Client
 
 from apps.contests.constants import ContestVisibility, ParticipationStatus
 from apps.ratings.models import Rating
+from apps.ratings.services import elo_mmr
 from apps.ratings.services.rating_service import RatingService
 from tests.factories import (
     ContestFactory,
@@ -138,6 +139,42 @@ class TestRatingCalculation:
         assert [row.pk for row in first] == [row.pk for row in second]
         assert Rating.objects.filter(contest=contest).count() == 1
         assert user.rating == rating_after_first
+
+    def test_elo_mmr_rewards_winner_and_sets_mean_performance(self):
+        contest = ContestFactory(is_rated=True, rate_all=True)
+        winner = UserFactory()
+        loser = UserFactory()
+        winner_participation = ContestParticipationFactory(user=winner, contest=contest)
+        loser_participation = ContestParticipationFactory(user=loser, contest=contest)
+        winner_participation.score = 100.0
+        winner_participation.save(update_fields=["score"])
+        loser_participation.score = 50.0
+        loser_participation.save(update_fields=["score"])
+
+        rows = RatingService.calculate_ratings(contest)
+        by_user = {row.user_id: row for row in rows}
+
+        assert by_user[winner.id].rating_after > by_user[loser.id].rating_after
+        assert by_user[winner.id].rating_before == elo_mmr.RATING_INIT
+        assert by_user[winner.id].mean > elo_mmr.MEAN_INIT
+        assert by_user[loser.id].mean < elo_mmr.MEAN_INIT
+        assert by_user[winner.id].performance > by_user[loser.id].performance
+        assert isinstance(by_user[winner.id].performance, float)
+
+    def test_elo_mmr_ties_keep_equal_ratings(self):
+        contest = ContestFactory(is_rated=True, rate_all=True)
+        first = UserFactory()
+        second = UserFactory()
+        for user in (first, second):
+            participation = ContestParticipationFactory(user=user, contest=contest)
+            participation.score = 100.0
+            participation.save(update_fields=["score"])
+
+        rows = RatingService.calculate_ratings(contest)
+
+        assert len(rows) == 2
+        assert rows[0].rating_after == rows[1].rating_after
+        assert rows[0].performance == rows[1].performance
 
     def test_force_recalculation_does_not_double_apply(self):
         contest = ContestFactory(is_rated=True, rate_all=True)

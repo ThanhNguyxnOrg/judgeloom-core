@@ -17,7 +17,7 @@ class RatingOut(Schema):
     rating_before: int
     rating_after: int
     delta: int
-    performance: int
+    performance: float
 
 
 class RatingHistoryOut(Schema):
@@ -41,4 +41,4 @@ class RatingChangeOut(Schema):
     rating_before: int
     rating_after: int
     delta: int
-    performance: int
+    performance: float
