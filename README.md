@@ -127,7 +127,9 @@ Make sure you have the following installed:
    ```bash
    cp .env.example .env
    ```
-   *Open `.env` and fill in your database, Redis, and secret key configurations.*
+   *Open `.env` and fill in your database, Redis, and secret key configurations.
+   Production rejects the example secret; generate one with
+   `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`.*
 
 5. **Initialize the database**
    ```bash

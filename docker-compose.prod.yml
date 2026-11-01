@@ -24,6 +24,7 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set a unique DJANGO_SECRET_KEY}
       DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
@@ -66,6 +67,7 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set a unique DJANGO_SECRET_KEY}
       DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
@@ -89,6 +91,7 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set a unique DJANGO_SECRET_KEY}
       DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
       REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
@@ -112,6 +115,7 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?set a unique DJANGO_SECRET_KEY}
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
     # Flower basic auth credentials should come from env; set FLOWER_BASIC_AUTH
     # in your .env or secret manager as "user:password".

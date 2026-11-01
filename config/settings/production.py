@@ -10,8 +10,11 @@ from __future__ import annotations
 
 from .base import *  # noqa: F403
 from .base import MIDDLEWARE, env
+from .secret import validate_secret_key
 
 # ─── Security ──────────────────────────────────────────────────────────────
+
+SECRET_KEY = validate_secret_key(SECRET_KEY)  # noqa: F405
 
 DEBUG = False
 

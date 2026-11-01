@@ -70,12 +70,18 @@ COPY --chown=judgeloom:judgeloom . /app/
 RUN mkdir -p /var/judgeloom/static /var/judgeloom/media \
     && chown -R judgeloom:judgeloom /var/judgeloom
 
+# Keep collected assets and uploads on the writable volumes used by Compose.
+ENV STATIC_ROOT=/var/judgeloom/static \
+    MEDIA_ROOT=/var/judgeloom/media
+
 # Switch to non-root before running the app
 USER judgeloom
 
-# Collect static assets at build time; the placeholder is build-only, never a runtime secret.
+# Collect static assets with a fresh build-only secret; production settings
+# reject known placeholders, and the generated value never persists at runtime.
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
-RUN DJANGO_SECRET_KEY=build-only-not-a-secret python manage.py collectstatic --noinput --clear
+RUN DJANGO_SECRET_KEY="$(python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())')" \
+    python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
 
