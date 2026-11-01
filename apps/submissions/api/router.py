@@ -6,6 +6,7 @@ from django.apps import apps
 from django.core.paginator import Paginator
 from ninja import Router
 from ninja.errors import HttpError
+from ninja.security import SessionAuth
 
 from apps.judge.models import Judge
 from apps.judge.services.shadow_job_service import ShadowJobService
@@ -24,6 +25,7 @@ from apps.submissions.api.schemas import (
 from apps.submissions.constants import SubmissionMode
 from apps.submissions.models import Submission
 from apps.submissions.services import SubmissionService
+from core.permissions import JudgeLoomAuth
 
 router = Router(tags=["submissions"])
 
@@ -37,6 +39,28 @@ def _get_problem_model() -> type:
     return apps.get_model("problems", "Problem")
 
 
+_JWT_AUTH = JudgeLoomAuth()
+
+
+def _request_user(request: Any) -> Any:
+    """Resolve the JWT principal, falling back to the session user."""
+
+    auth_user = getattr(request, "auth", None)
+    if auth_user is not None and getattr(auth_user, "is_authenticated", False):
+        return auth_user
+
+    user = getattr(request, "user", None)
+    if getattr(user, "is_authenticated", False):
+        return user
+
+    scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+    if scheme.lower() == "bearer" and token:
+        jwt_user = _JWT_AUTH.authenticate(request, token)
+        if jwt_user is not None:
+            return jwt_user
+    return user
+
+
 def _require_authenticated(request: Any) -> None:
     """Ensure request user is authenticated.
 
@@ -46,7 +70,7 @@ def _require_authenticated(request: Any) -> None:
     Raises:
         HttpError: If the user is not authenticated.
     """
-    user = request.user
+    user = _request_user(request)
     if not getattr(user, "is_authenticated", False):
         raise HttpError(401, "Authentication required.")
 
@@ -75,7 +99,7 @@ def _submission_detail_out(submission: Any, *, include_private: bool) -> Submiss
     )
 
 
-@router.get("/", response=SubmissionPageOut)
+@router.get("/", response=SubmissionPageOut, auth=[JudgeLoomAuth(), SessionAuth()])
 def list_submissions(
     request: Any,
     user_id: int | None = None,
@@ -103,8 +127,8 @@ def list_submissions(
     _require_authenticated(request)
 
     queryset = Submission.objects.select_related("problem", "language", "user").filter(mode=SubmissionMode.SUBMIT)
-    if not request.user.is_staff:
-        queryset = queryset.filter(is_public=True) if public else queryset.filter(user=request.user)
+    if not _request_user(request).is_staff:
+        queryset = queryset.filter(is_public=True) if public else queryset.filter(user=_request_user(request))
     elif user_id is not None:
         queryset = queryset.filter(user_id=user_id)
 
@@ -139,7 +163,7 @@ def list_submissions(
     )
 
 
-@router.post("/", response=SubmissionDetailOut)
+@router.post("/", response=SubmissionDetailOut, auth=[JudgeLoomAuth(), SessionAuth()])
 def create_submission(request: Any, payload: SubmissionCreateIn) -> SubmissionDetailOut:
     """Create a new submission and queue judging.
 
@@ -167,7 +191,7 @@ def create_submission(request: Any, payload: SubmissionCreateIn) -> SubmissionDe
         raise HttpError(404, "Language not found.")
 
     submission = SubmissionService.create_submission(
-        user=request.user,
+        user=_request_user(request),
         problem=problem,
         language=language,
         source_code=payload.source_code,
@@ -175,7 +199,7 @@ def create_submission(request: Any, payload: SubmissionCreateIn) -> SubmissionDe
     return _submission_detail_out(submission, include_private=True)
 
 
-@router.post("/run", response=SubmissionDetailOut)
+@router.post("/run", response=SubmissionDetailOut, auth=[JudgeLoomAuth(), SessionAuth()])
 def run_submission(request: Any, payload: SubmissionRunIn) -> SubmissionDetailOut:
     """Execute source against custom stdin without scoring or rating."""
 
@@ -191,7 +215,7 @@ def run_submission(request: Any, payload: SubmissionRunIn) -> SubmissionDetailOu
         raise HttpError(404, "Language not found.")
 
     submission = SubmissionService.create_submission(
-        user=request.user,
+        user=_request_user(request),
         problem=problem,
         language=language,
         source_code=payload.source_code,
@@ -212,7 +236,11 @@ def get_shared_submission(request: Any, token: str) -> SubmissionDetailOut:
     return _submission_detail_out(submission, include_private=False)
 
 
-@router.patch("/{submission_id}/visibility", response=SubmissionDetailOut)
+@router.patch(
+    "/{submission_id}/visibility",
+    response=SubmissionDetailOut,
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def set_submission_visibility(
     request: Any,
     submission_id: int,
@@ -222,31 +250,35 @@ def set_submission_visibility(
 
     _require_authenticated(request)
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_edit_submission(request.user, submission):
+    if not SubmissionService.can_edit_submission(_request_user(request), submission):
         raise HttpError(403, "You are not allowed to change this submission.")
     submission = SubmissionService.set_submission_public(submission, payload.is_public)
     return _submission_detail_out(submission, include_private=True)
 
 
-@router.post("/{submission_id}/share", response=SubmissionShareOut)
+@router.post(
+    "/{submission_id}/share",
+    response=SubmissionShareOut,
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def create_submission_share(request: Any, submission_id: int) -> SubmissionShareOut:
     """Issue a metadata-only share token for an owned submission."""
 
     _require_authenticated(request)
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_edit_submission(request.user, submission):
+    if not SubmissionService.can_edit_submission(_request_user(request), submission):
         raise HttpError(403, "You are not allowed to share this submission.")
     submission = SubmissionService.create_share_token(submission)
     return SubmissionShareOut(share_token=str(submission.share_token))
 
 
-@router.delete("/{submission_id}/share")
+@router.delete("/{submission_id}/share", auth=[JudgeLoomAuth(), SessionAuth()])
 def revoke_submission_share(request: Any, submission_id: int) -> dict[str, str]:
     """Revoke the current share token for an owned submission."""
 
     _require_authenticated(request)
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_edit_submission(request.user, submission):
+    if not SubmissionService.can_edit_submission(_request_user(request), submission):
         raise HttpError(403, "You are not allowed to share this submission.")
     SubmissionService.revoke_share_token(submission)
     return {"detail": "Share token revoked."}
@@ -270,12 +302,16 @@ def _shadow_job_out(job: Any) -> ShadowJobOut:
     )
 
 
-@router.post("/{submission_id}/shadow", response=ShadowJobOut)
+@router.post(
+    "/{submission_id}/shadow",
+    response=ShadowJobOut,
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def create_shadow_job(request: Any, submission_id: int, payload: ShadowJobCreateIn) -> ShadowJobOut:
     """Queue a staff-only non-scoring replay of a submission."""
 
     _require_authenticated(request)
-    if not request.user.is_staff:
+    if not _request_user(request).is_staff:
         raise HttpError(403, "Staff access required.")
 
     submission = SubmissionService.get_submission(submission_id)
@@ -292,12 +328,16 @@ def create_shadow_job(request: Any, submission_id: int, payload: ShadowJobCreate
     return _shadow_job_out(job)
 
 
-@router.get("/{submission_id}/shadows", response=list[ShadowJobOut])
+@router.get(
+    "/{submission_id}/shadows",
+    response=list[ShadowJobOut],
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def list_shadow_jobs(request: Any, submission_id: int) -> list[ShadowJobOut]:
     """List staff-only replay jobs for a submission."""
 
     _require_authenticated(request)
-    if not request.user.is_staff:
+    if not _request_user(request).is_staff:
         raise HttpError(403, "Staff access required.")
 
     submission = SubmissionService.get_submission(submission_id)
@@ -317,14 +357,18 @@ def get_submission_detail(request: Any, submission_id: int) -> SubmissionDetailO
         Submission detail payload.
     """
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_view_submission(request.user, submission):
+    if not SubmissionService.can_view_submission(_request_user(request), submission):
         raise HttpError(403, "You are not allowed to view this submission.")
 
-    include_private = SubmissionService.can_view_submission_private(request.user, submission)
+    include_private = SubmissionService.can_view_submission_private(_request_user(request), submission)
     return _submission_detail_out(submission, include_private=include_private)
 
 
-@router.get("/{submission_id}/source", response=SubmissionSourceOut)
+@router.get(
+    "/{submission_id}/source",
+    response=SubmissionSourceOut,
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def get_submission_source(request: Any, submission_id: int) -> SubmissionSourceOut:
     """Return source code for an authorized submission viewer.
 
@@ -338,13 +382,17 @@ def get_submission_source(request: Any, submission_id: int) -> SubmissionSourceO
     _require_authenticated(request)
 
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_view_submission_private(request.user, submission):
+    if not SubmissionService.can_view_submission_private(_request_user(request), submission):
         raise HttpError(403, "You are not allowed to view this source code.")
 
     return SubmissionSourceOut(submission_id=submission.id, source_code=submission.source.source_code)
 
 
-@router.get("/{submission_id}/test-cases", response=list[TestCaseOut])
+@router.get(
+    "/{submission_id}/test-cases",
+    response=list[TestCaseOut],
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def list_test_case_results(request: Any, submission_id: int) -> list[TestCaseOut]:
     """List per-test-case results for a submission.
 
@@ -358,7 +406,7 @@ def list_test_case_results(request: Any, submission_id: int) -> list[TestCaseOut
     _require_authenticated(request)
 
     submission = SubmissionService.get_submission(submission_id)
-    if not SubmissionService.can_view_submission_private(request.user, submission):
+    if not SubmissionService.can_view_submission_private(_request_user(request), submission):
         raise HttpError(403, "You are not allowed to view test case data.")
 
     return [
@@ -377,7 +425,11 @@ def list_test_case_results(request: Any, submission_id: int) -> list[TestCaseOut
     ]
 
 
-@router.post("/{submission_id}/rejudge", response=dict[str, int | str])
+@router.post(
+    "/{submission_id}/rejudge",
+    response=dict[str, int | str],
+    auth=[JudgeLoomAuth(), SessionAuth()],
+)
 def rejudge_submission(request: Any, submission_id: int) -> dict[str, int | str]:
     """Rejudge a submission (staff only).
 
@@ -389,7 +441,7 @@ def rejudge_submission(request: Any, submission_id: int) -> dict[str, int | str]
         Minimal response confirming queued state.
     """
     _require_authenticated(request)
-    if not request.user.is_staff:
+    if not _request_user(request).is_staff:
         raise HttpError(403, "Staff access required.")
 
     submission = SubmissionService.get_submission(submission_id)
