@@ -12,8 +12,8 @@ from django.test import Client
 
 from apps.accounts.services.auth_service import AuthService
 from apps.problems.constants import ProblemVisibility
-from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from apps.problems.services.problem_service import ProblemService
+from apps.submissions.constants import SubmissionResult, SubmissionStatus
 from tests.factories import OrganizationFactory, ProblemFactory, SubmissionFactory, TagFactory, UserFactory
 
 
