@@ -13,5 +13,18 @@ permissions:
 jobs:
   auto-assign:
     if: github.event.sender.type != 'Bot' && !endsWith(github.actor, '[bot]')
-    uses: ThanhNguyxnOrg/.github/.github/workflows/reusable-auto-assign.yml@main
-    secrets: inherit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Assign issue
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh issue edit "${{ github.event.issue.number }}" --repo "$GITHUB_REPOSITORY" --add-assignee "ThanhNguyxn07,RealThanhNguyxn"
+
+      - name: Assign pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "$GITHUB_REPOSITORY" --add-assignee "ThanhNguyxn07,RealThanhNguyxn"
