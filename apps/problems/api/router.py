@@ -205,8 +205,8 @@ def create_solution(request: Any, code: str, payload: SolutionIn) -> SolutionOut
     problem = ProblemService.get_problem_by_code(code)
     if not ProblemService.can_see_problem(viewer, problem):
         raise PermissionDeniedError("You do not have access to this problem.")
-    if not getattr(viewer, "is_authenticated", False):
-        raise PermissionDeniedError("Authentication required.")
+    if not ProblemService.can_edit_problem(viewer, problem):
+        raise PermissionDeniedError("Only problem maintainers can publish solutions.")
 
     solution = Solution.objects.create(
         problem=problem,

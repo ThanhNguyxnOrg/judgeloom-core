@@ -86,6 +86,27 @@ class TestProblemApi:
         assert response.status_code == 200
         assert response.json()["code"] == "created-jwt"
 
+    def test_only_problem_maintainers_can_publish_solutions(self):
+        author = UserFactory()
+        problem = ProblemFactory(code="editorial", visibility=ProblemVisibility.PUBLIC)
+        problem.authors.add(author)
+        payload = '{"content":"editorial","is_public":true,"verdict":"correct"}'
+
+        non_maintainer = self._client(UserFactory()).post(
+            "/api/problems/editorial/solutions",
+            data=payload,
+            content_type="application/json",
+        )
+        assert non_maintainer.status_code == 403
+
+        maintainer = self._client(author).post(
+            "/api/problems/editorial/solutions",
+            data=payload,
+            content_type="application/json",
+        )
+        assert maintainer.status_code == 200
+        assert maintainer.json()["content"] == "editorial"
+
     def test_search_tag_source_ordering_and_solved_filters(self):
         user = UserFactory()
         tag = TagFactory(code="dp")
