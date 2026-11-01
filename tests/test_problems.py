@@ -13,7 +13,8 @@ from django.test import Client
 from apps.accounts.services.auth_service import AuthService
 from apps.problems.constants import ProblemVisibility
 from apps.submissions.constants import SubmissionResult, SubmissionStatus
-from tests.factories import ProblemFactory, SubmissionFactory, TagFactory, UserFactory
+from apps.problems.services.problem_service import ProblemService
+from tests.factories import OrganizationFactory, ProblemFactory, SubmissionFactory, TagFactory, UserFactory
 
 
 @pytest.mark.django_db
@@ -56,6 +57,32 @@ class TestProblemModel:
     def test_types_includes_standard(self, problem):
         """Default problem includes standard type."""
         assert "standard" in problem.types
+
+
+@pytest.mark.django_db
+class TestOrganizationPrivateProblem:
+    def test_public_org_private_problem_requires_membership(self):
+        from django.contrib.auth.models import AnonymousUser
+
+        organization = OrganizationFactory()
+        member = UserFactory()
+        outsider = UserFactory()
+        member.organizations.add(organization)
+        problem = ProblemFactory(visibility=ProblemVisibility.PUBLIC)
+        problem.is_organization_private = True
+        problem.save(update_fields=["is_organization_private"])
+        problem.organizations.add(organization)
+
+        assert problem.is_accessible_by(member) is True
+        assert problem.is_accessible_by(outsider) is False
+        assert problem.is_accessible_by(AnonymousUser()) is False
+
+        member_codes = set(ProblemService.get_visible_problems(member).values_list("code", flat=True))
+        outsider_codes = set(ProblemService.get_visible_problems(outsider).values_list("code", flat=True))
+        anonymous_codes = set(ProblemService.get_visible_problems(AnonymousUser()).values_list("code", flat=True))
+        assert problem.code in member_codes
+        assert problem.code not in outsider_codes
+        assert problem.code not in anonymous_codes
 
 
 @pytest.mark.django_db

@@ -111,7 +111,23 @@ class Problem(SluggedModel):
         """
 
         if self.is_public or self.visibility == ProblemVisibility.UNLISTED:
-            return True
+            if not self.is_organization_private:
+                return True
+            if not getattr(user, "is_authenticated", False):
+                return False
+            if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+                return True
+
+            user_id = getattr(user, "pk", None)
+            if user_id is None:
+                return False
+            if (
+                self.authors.filter(pk=user_id).exists()
+                or self.curators.filter(pk=user_id).exists()
+                or self.testers.filter(pk=user_id).exists()
+            ):
+                return True
+            return self.organizations.filter(members__pk=user_id).exists()
 
         if not getattr(user, "is_authenticated", False):
             return False

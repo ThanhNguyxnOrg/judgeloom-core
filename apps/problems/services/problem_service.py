@@ -94,13 +94,17 @@ class ProblemService:
         visibility_filter = Q(visibility=ProblemVisibility.PUBLIC) | Q(visibility=ProblemVisibility.UNLISTED)
 
         if not getattr(user, "is_authenticated", False):
-            return base_queryset.filter(visibility_filter).distinct()
+            return base_queryset.filter(visibility_filter, is_organization_private=False).distinct()
 
         user_filter = Q(authors=user) | Q(curators=user) | Q(testers=user)
         if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
             return base_queryset.distinct()
 
-        return base_queryset.filter(visibility_filter | user_filter).distinct()
+        org_filter = Q(is_organization_private=False)
+        if hasattr(user, "organizations"):
+            org_filter |= Q(is_organization_private=True, organizations__in=user.organizations.all())
+
+        return base_queryset.filter((visibility_filter & org_filter) | user_filter).distinct()
 
     @staticmethod
     def get_problem_by_code(code: str) -> Problem:
