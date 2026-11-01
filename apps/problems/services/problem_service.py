@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from django.db import transaction
 from django.db.models import Q, QuerySet
 
-from apps.problems.constants import ProblemVisibility, SolutionVerdict
+from apps.problems.constants import ProblemVisibility
 from apps.problems.models import Problem, Solution
 from core.events import PROBLEM_CREATED, PROBLEM_UPDATED, Event, publish_sync
 from core.exceptions import NotFoundError
@@ -152,18 +152,30 @@ class ProblemService:
             dict[str, float | int | str]: Submission and solution health metrics.
         """
 
-        solution_qs = Solution.objects.filter(problem=problem)
-        total_solutions = solution_qs.count()
-        total_public_solutions = solution_qs.filter(is_public=True).count()
-        total_correct = solution_qs.filter(verdict=SolutionVerdict.CORRECT).count()
-        total_partial = solution_qs.filter(verdict=SolutionVerdict.PARTIAL).count()
-        total_wrong = solution_qs.filter(verdict=SolutionVerdict.WRONG).count()
+        from apps.submissions.constants import SubmissionMode, SubmissionResult
+        from apps.submissions.models import Submission
 
-        accepted_rate = (total_correct / total_solutions * 100.0) if total_solutions else 0.0
+        submission_qs = Submission.objects.filter(problem=problem, mode=SubmissionMode.SUBMIT)
+        total_submissions = submission_qs.count()
+        total_correct = submission_qs.filter(result=SubmissionResult.AC).count()
+        total_partial = submission_qs.filter(result=SubmissionResult.PARTIAL).count()
+        total_wrong = submission_qs.filter(
+            result__in=[
+                SubmissionResult.WA,
+                SubmissionResult.TLE,
+                SubmissionResult.MLE,
+                SubmissionResult.RTE,
+                SubmissionResult.OLE,
+                SubmissionResult.IR,
+            ]
+        ).count()
+        total_public_solutions = Solution.objects.filter(problem=problem, is_public=True).count()
+
+        accepted_rate = (total_correct / total_submissions * 100.0) if total_submissions else 0.0
 
         return {
             "problem_code": problem.code,
-            "total_submissions": total_solutions,
+            "total_submissions": total_submissions,
             "total_public_solutions": total_public_solutions,
             "total_accepted": total_correct,
             "total_partial": total_partial,

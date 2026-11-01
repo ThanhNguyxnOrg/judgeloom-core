@@ -86,6 +86,22 @@ class TestOrganizationPrivateProblem:
 
 
 @pytest.mark.django_db
+class TestProblemStatistics:
+    def test_statistics_count_submission_results(self, user, problem):
+        SubmissionFactory(user=user, problem=problem, result=SubmissionResult.AC)
+        SubmissionFactory(user=user, problem=problem, result=SubmissionResult.WA)
+        SubmissionFactory(user=user, problem=problem, result=SubmissionResult.PARTIAL)
+
+        stats = ProblemService.get_problem_statistics(problem)
+
+        assert stats["total_submissions"] == 3
+        assert stats["total_accepted"] == 1
+        assert stats["total_partial"] == 1
+        assert stats["total_wrong"] == 1
+        assert stats["accepted_rate"] == 33.33
+
+
+@pytest.mark.django_db
 class TestProblemApi:
     def _client(self, user):
         client = Client()
