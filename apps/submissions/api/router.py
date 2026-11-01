@@ -7,7 +7,11 @@ from django.core.paginator import Paginator
 from ninja import Router
 from ninja.errors import HttpError
 
+from apps.judge.models import Judge
+from apps.judge.services.shadow_job_service import ShadowJobService
 from apps.submissions.api.schemas import (
+    ShadowJobCreateIn,
+    ShadowJobOut,
     SubmissionCreateIn,
     SubmissionDetailOut,
     SubmissionPageOut,
@@ -246,6 +250,59 @@ def revoke_submission_share(request: Any, submission_id: int) -> dict[str, str]:
         raise HttpError(403, "You are not allowed to share this submission.")
     SubmissionService.revoke_share_token(submission)
     return {"detail": "Share token revoked."}
+
+
+def _shadow_job_out(job: Any) -> ShadowJobOut:
+    return ShadowJobOut(
+        id=job.id,
+        submission_id=job.submission_id,
+        status=job.status,
+        target_judge=job.target_judge.name if job.target_judge is not None else None,
+        claimed_by=job.claimed_by.name if job.claimed_by is not None else None,
+        result=job.result,
+        total_points=job.total_points,
+        case_total=job.case_total,
+        case_passed=job.case_passed,
+        error_message=job.error_message,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        created_at=job.created_at,
+    )
+
+
+@router.post("/{submission_id}/shadow", response=ShadowJobOut)
+def create_shadow_job(request: Any, submission_id: int, payload: ShadowJobCreateIn) -> ShadowJobOut:
+    """Queue a staff-only non-scoring replay of a submission."""
+
+    _require_authenticated(request)
+    if not request.user.is_staff:
+        raise HttpError(403, "Staff access required.")
+
+    submission = SubmissionService.get_submission(submission_id)
+    target_judge = None
+    if payload.judge_name:
+        target_judge = Judge.objects.filter(name=payload.judge_name).first()
+        if target_judge is None:
+            raise HttpError(404, "Judge not found.")
+
+    try:
+        job = ShadowJobService.create_for_submission(submission, target_judge=target_judge)
+    except ValueError as exc:
+        raise HttpError(400, str(exc)) from exc
+    return _shadow_job_out(job)
+
+
+@router.get("/{submission_id}/shadows", response=list[ShadowJobOut])
+def list_shadow_jobs(request: Any, submission_id: int) -> list[ShadowJobOut]:
+    """List staff-only replay jobs for a submission."""
+
+    _require_authenticated(request)
+    if not request.user.is_staff:
+        raise HttpError(403, "Staff access required.")
+
+    submission = SubmissionService.get_submission(submission_id)
+    jobs = submission.shadow_jobs.select_related("target_judge", "claimed_by").order_by("-created_at")
+    return [_shadow_job_out(job) for job in jobs]
 
 
 @router.get("/{submission_id}", response=SubmissionDetailOut)

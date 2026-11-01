@@ -19,6 +19,7 @@ type Config struct {
 	Heartbeat         time.Duration
 	CacheDir          string
 	AllowInsecureHTTP bool
+	ShadowMode        bool
 }
 
 func Load() (Config, error) {
@@ -32,6 +33,7 @@ func Load() (Config, error) {
 		Heartbeat:         durationEnv("WORKER_HEARTBEAT", 10*time.Second),
 		CacheDir:          envOr("WORKER_CACHE_DIR", "./worker-cache"),
 		AllowInsecureHTTP: boolEnv("WORKER_ALLOW_INSECURE_HTTP", false),
+		ShadowMode:        boolEnv("WORKER_SHADOW", false),
 	}
 	if cfg.JudgeToken == "" {
 		return Config{}, errors.New("JUDGELOOM_JUDGE_TOKEN is required")

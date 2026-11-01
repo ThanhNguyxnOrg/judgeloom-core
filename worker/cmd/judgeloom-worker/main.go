@@ -21,7 +21,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	client := api.NewClient(cfg.APIURL, cfg.JudgeToken, nil)
+	var client api.Client = api.NewClient(cfg.APIURL, cfg.JudgeToken, nil)
+	if cfg.ShadowMode {
+		client = api.NewShadowClient(cfg.APIURL, cfg.JudgeToken, nil)
+	}
 	cache := &store.Store{Root: cfg.CacheDir, Client: client}
 	if err := cache.Cleanup(72 * time.Hour); err != nil {
 		log.Printf("package cache cleanup failed: %v", err)
@@ -49,7 +52,7 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	log.Printf("JudgeLoom worker %s starting for %s (go-judge %s)", cfg.JudgeName, cfg.APIURL, cfg.GoJudgeURL)
+	log.Printf("JudgeLoom worker %s starting for %s (go-judge %s, shadow=%t)", cfg.JudgeName, cfg.APIURL, cfg.GoJudgeURL, cfg.ShadowMode)
 	if err := workerInstance.Run(ctx); err != nil {
 		log.Fatal(err)
 	}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.contrib import admin
 
-from apps.judge.models import Judge, JudgeJob, Language, RuntimeVersion
+from apps.judge.models import Judge, JudgeJob, Language, RuntimeVersion, ShadowJob
 
 
 @admin.register(Judge)
@@ -35,6 +35,17 @@ class JudgeJobAdmin(admin.ModelAdmin):
     search_fields = ("submission__id", "submission__problem__code", "claimed_by__name")
     autocomplete_fields = ("submission", "package", "language", "claimed_by")
     readonly_fields = ("created_at", "updated_at", "claimed_at", "started_at", "finished_at")
+
+
+@admin.register(ShadowJob)
+class ShadowJobAdmin(admin.ModelAdmin):
+    """Read-mostly admin for shadow judge jobs."""
+
+    list_display = ("submission", "target_judge", "status", "claimed_by", "result", "attempts", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("submission__id", "submission__problem__code", "target_judge__name", "claimed_by__name")
+    autocomplete_fields = ("submission", "package", "language", "target_judge", "claimed_by")
+    readonly_fields = ("created_at", "updated_at", "claimed_at", "started_at", "finished_at", "case_results")
 
 
 @admin.register(Language)

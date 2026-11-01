@@ -35,6 +35,19 @@ func TestLoadAllowsPlainHTTPWhenExplicitlyEnabled(t *testing.T) {
 	}
 }
 
+func TestLoadReadsShadowMode(t *testing.T) {
+	setRequiredEnv(t, "https://judgeloom.example.com/api/v1")
+	t.Setenv("WORKER_SHADOW", "true")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !cfg.ShadowMode {
+		t.Fatal("expected shadow mode")
+	}
+}
+
 func TestLoadAcceptsHTTPS(t *testing.T) {
 	setRequiredEnv(t, "https://judgeloom.example.com/api/v1")
 

@@ -91,6 +91,30 @@ class TestCaseOut(Schema):
     batch_number: int | None
 
 
+class ShadowJobCreateIn(Schema):
+    """Optional judge target for a replay."""
+
+    judge_name: str | None = None
+
+
+class ShadowJobOut(Schema):
+    """Shadow/replay job status and result."""
+
+    id: int
+    submission_id: int
+    status: str
+    target_judge: str | None
+    claimed_by: str | None
+    result: str
+    total_points: float
+    case_total: int
+    case_passed: int
+    error_message: str
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
+
+
 class SubmissionPageOut(Schema):
     """Paginated submissions response."""
 
