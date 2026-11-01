@@ -27,7 +27,7 @@ python manage.py import_problem_package aplusb path/to/aplusb.zip
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `JUDGELOOM_API_URL` | `http://localhost:8000/api/v1` | Control-plane base URL; production must be HTTPS |
+| `JUDGELOOM_API_URL` | `http://localhost:8000/api/v1/judge` | Control-plane gateway base URL; production must be HTTPS |
 | `WORKER_ALLOW_INSECURE_HTTP` | `false` | Permit a plaintext control-plane URL for local development only |
 | `JUDGELOOM_JUDGE_TOKEN` | required | Bearer token from `create_judge_token` |
 | `JUDGELOOM_JUDGE_NAME` | required | Must match the judge record name |
@@ -104,7 +104,9 @@ checker package build. It skips when `GO_JUDGE_URL` is unset.
 
 ## Deployment notes
 
-- Keep the package cache on a persistent volume.
+- Keep the package cache on a persistent volume. New volumes inherit the
+  image's `judgeloom` ownership; an existing root-owned volume must be
+  chowned to uid 10001 or recreated before the worker can write packages.
 - Run one worker process per container; scale with Compose/Kubernetes replicas.
 - Use TLS between the worker and the control plane in production.
 - Do not run go-judge as a public service; it is trusted infrastructure.

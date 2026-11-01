@@ -16,6 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=build /out/judgeloom-worker /usr/local/bin/judgeloom-worker
 
+# Seed ownership for a fresh named package-cache volume.
+RUN mkdir -p /var/lib/judgeloom-worker \
+    && chown judgeloom:judgeloom /var/lib/judgeloom-worker
+
 USER judgeloom
 WORKDIR /home/judgeloom
 ENTRYPOINT ["/usr/local/bin/judgeloom-worker"]

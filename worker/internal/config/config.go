@@ -25,7 +25,7 @@ type Config struct {
 
 func Load() (Config, error) {
 	cfg := Config{
-		APIURL:            envOr("JUDGELOOM_API_URL", "http://localhost:8000/api/v1"),
+		APIURL:            envOr("JUDGELOOM_API_URL", "http://localhost:8000/api/v1/judge"),
 		JudgeToken:        os.Getenv("JUDGELOOM_JUDGE_TOKEN"),
 		JudgeName:         os.Getenv("JUDGELOOM_JUDGE_NAME"),
 		GoJudgeURL:        envOr("GO_JUDGE_URL", "http://localhost:5050"),

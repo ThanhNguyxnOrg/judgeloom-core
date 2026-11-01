@@ -172,7 +172,7 @@ services:
       dockerfile: docker/Dockerfile.worker
     restart: unless-stopped
     environment:
-      JUDGELOOM_API_URL: http://web:8000/api/v1
+      JUDGELOOM_API_URL: http://web:8000/api/v1/judge
       WORKER_ALLOW_INSECURE_HTTP: "true"
       JUDGELOOM_JUDGE_TOKEN: ${JUDGELOOM_JUDGE_TOKEN:-change-me}
       JUDGELOOM_JUDGE_NAME: ${JUDGELOOM_JUDGE_NAME:-judge-worker-1}

@@ -49,14 +49,29 @@ func TestLoadReadsShadowMode(t *testing.T) {
 }
 
 func TestLoadAcceptsHTTPS(t *testing.T) {
-	setRequiredEnv(t, "https://judgeloom.example.com/api/v1")
+	setRequiredEnv(t, "https://judgeloom.example.com/api/v1/judge")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if cfg.APIURL != "https://judgeloom.example.com/api/v1" {
+	if cfg.APIURL != "https://judgeloom.example.com/api/v1/judge" {
 		t.Fatalf("unexpected API URL: %s", cfg.APIURL)
+	}
+}
+
+func TestLoadDefaultsToJudgeGatewayPath(t *testing.T) {
+	t.Setenv("JUDGELOOM_API_URL", "")
+	t.Setenv("JUDGELOOM_JUDGE_TOKEN", "dummy-token")
+	t.Setenv("JUDGELOOM_JUDGE_NAME", "dummy-judge")
+	t.Setenv("WORKER_ALLOW_INSECURE_HTTP", "true")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.APIURL != "http://localhost:8000/api/v1/judge" {
+		t.Fatalf("unexpected default API URL: %s", cfg.APIURL)
 	}
 }
 
