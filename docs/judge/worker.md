@@ -1,3 +1,5 @@
+[🏠 Project README](../../README.md) · [📚 Documentation](../README.md) · [⚖️ Protocol v1](protocol-v1.md) · [📦 Package authoring](package-authoring.md)
+
 # JudgeLoom Worker Runbook
 
 The worker is a Linux Go process that pulls leased jobs from the Django control
@@ -108,6 +110,8 @@ checker package build. It skips when `GO_JUDGE_URL` is unset.
   image's `judgeloom` ownership; an existing root-owned volume must be
   chowned to uid 10001 or recreated before the worker can write packages.
 - Run one worker process per container; scale with Compose/Kubernetes replicas.
+- The control-plane gateway URL must include `/api/v1/judge`; see
+  [Configuration](../getting-started/configuration.md).
 - Use TLS between the worker and the control plane in production.
 - Do not run go-judge as a public service; it is trusted infrastructure.
 - Treat go-judge as host-level trust: run it on dedicated judge hosts (or a

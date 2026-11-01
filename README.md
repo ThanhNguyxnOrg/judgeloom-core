@@ -1,205 +1,221 @@
 ﻿<div align="center">
-  <img src="docs/assets/logo.png" alt="JudgeLoom Logo" width="320" />
+  <img src="docs/assets/logo.png" alt="JudgeLoom" width="300" />
 
   # 🚀 JudgeLoom
 
-  **A Next-Generation, High-Performance Competitive Programming Online Judge Platform**
+  **API-first online judge control plane with a sandboxed Go judge worker.**
 
   [![CI](https://img.shields.io/github/actions/workflow/status/ThanhNguyxnOrg/judgeloom-core/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/ThanhNguyxnOrg/judgeloom-core/actions/workflows/ci.yml)
   [![CodeQL](https://img.shields.io/github/actions/workflow/status/ThanhNguyxnOrg/judgeloom-core/codeql.yml?branch=master&style=for-the-badge&logo=github&label=CodeQL)](https://github.com/ThanhNguyxnOrg/judgeloom-core/actions/workflows/codeql.yml)
-  [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-  [![Django Version](https://img.shields.io/badge/django-5.2%2B-092E20.svg?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
-  [![PostgreSQL](https://img.shields.io/badge/postgres-16%2B-336791.svg?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-  [![Redis](https://img.shields.io/badge/redis-7%2B-DC382D.svg?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
-  [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg?style=for-the-badge&logo=ruff&logoColor=white)](https://docs.astral.sh/ruff/)
+  [![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+  [![Django](https://img.shields.io/badge/django-5.2-092E20.svg?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+  [![Go](https://img.shields.io/badge/go-1.27-00ADD8.svg?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+  [![PostgreSQL](https://img.shields.io/badge/postgres-16-336791.svg?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+  [![Redis](https://img.shields.io/badge/redis-7-DC382D.svg?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+  [![Docker](https://img.shields.io/badge/docker-compose-2496ED.svg?style=for-the-badge&logo=docker&logoColor=white)](https://docs.docker.com/compose/)
   [![License](https://img.shields.io/badge/license-AGPL--3.0-brightgreen.svg?style=for-the-badge)](LICENSE)
+  [![Status](https://img.shields.io/badge/status-active-blue.svg?style=for-the-badge)](docs/README.md)
 </div>
 
 <br />
 
-> **JudgeLoom** is a complete, modern rewrite inspired by the classic DMOJ/VNOJ online judge platforms. It is designed from the ground up for scalability, sub-millisecond API performance, real-time WebSocket feedback, and a seamless developer experience. 
+> [!NOTE]
+> **JudgeLoom** is an active, API-first core. The Django control plane, Go
+> worker, and go-judge sandbox are implemented; a web UI is intentionally out of
+> scope. Start with the **[Quickstart](docs/getting-started/quickstart.md)** or
+> browse the **[documentation hub](docs/README.md)**.
 
 ---
 
-## ✨ Feature Highlights
+## ✨ Why JudgeLoom?
 
-* 🏆 **Native Contest Formats:** Full support for ICPC, IOI, AtCoder, and ECOO scoring formats.
-* ⚡ **Real-time Judging Feedback:** Watch your submission get judged instantly via Django Channels (WebSockets).
-* 📈 **Advanced Rating System:** Elo-based performance tracking, leaderboards, and historical rating graphs.
-* 🛡️ **Robust Security:** Secure JWT Authentication, isolated Judge Worker sandboxing, and strict rate-limiting.
-* 🧩 **Extensible Plugin Architecture:** Centralized registry to easily plug in custom contest formats or custom interactive judges.
-* 🚀 **Async Processing:** High-throughput job queues powered by Celery & Redis for asynchronous judging.
-* 📖 **Modern REST API:** Fully typed, auto-documented OpenAPI built with Django Ninja and Pydantic v2.
+- 🔒 **Control and execution are separate.** Django never runs participant code.
+- ⚖️ **Pull-based judge workers.** Workers claim leased jobs and report
+  per-case results; the server remains the scoring authority.
+- 📦 **Immutable packages.** Test data is SHA-256-addressed, hashed per file,
+  cached by workers, and safe for rejudges.
+- 🧪 **Real sandboxing.** go-judge runs Python/C++ with CPU, memory, process,
+  output, and filesystem limits.
+- 🧰 **Testlib ecosystem.** Inline checkers, validators, interactive checkers,
+  and a package-authoring CLI with embedded Testlib support.
+- 🏆 **Contest-ready domain.** ICPC/IOI/AtCoder/ECOO formats, freeze,
+  participation-bound submissions, Elo-MMR ratings.
+- 📡 **Typed API and live updates.** Django Ninja + Pydantic + Channels.
+- 🛡️ **Operationally hardened.** JWT/session auth, hashed judge tokens, Redis
+  auth, production secret validation, read-only/authenticated go-judge.
+- 🧭 **Docs that link together.** Every operational path has a runbook and
+  cross-links to the next step.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏛️ Architecture at a glance
 
-| Component | Technology | Description |
+```mermaid
+flowchart LR
+  U[Users / API clients] -->|HTTPS + JWT| API[Django control plane]
+  API --> DB[(PostgreSQL)]
+  API --> R[(Redis)]
+  API --> C[Celery / Channels]
+  W[Go judge worker] -->|pull jobs / report| API
+  W -->|token| G[go-judge]
+  G --> S[Python 3 / C++17 sandbox]
+```
+
+Read the full [architecture overview](docs/architecture/overview.md) and
+[security model](docs/architecture/security.md).
+
+---
+
+## 🚀 Quick start
+
+### Docker Compose (full stack)
+
+```bash
+git clone https://github.com/ThanhNguyxnOrg/judgeloom-core.git
+cd judgeloom-core
+cp .env.example .env
+# set DJANGO_SECRET_KEY, POSTGRES_PASSWORD, REDIS_PASSWORD,
+# GO_JUDGE_AUTH_TOKEN, JUDGELOOM_JUDGE_TOKEN, JUDGELOOM_JUDGE_NAME
+
+docker compose up -d --build postgres redis web go-judge
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py seed_users
+docker compose exec web python manage.py seed_languages
+docker compose exec web python manage.py seed_problems
+
+curl -fsS http://127.0.0.1:8000/api/health/ready
+```
+
+Then follow **[Your first submission](docs/getting-started/first-submission.md)**
+to import a package, start the worker, and get a real verdict.
+
+### Local Python
+
+```bash
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements/base.txt -r requirements/testing.txt
+
+cp .env.example .env
+# Leave DATABASE_URL empty for SQLite, or set PostgreSQL.
+python manage.py migrate
+python manage.py seed_users
+python manage.py seed_languages
+python manage.py seed_problems
+python manage.py runserver
+```
+
+- Swagger: <http://127.0.0.1:8000/api/docs>
+- Health: <http://127.0.0.1:8000/api/health/ready>
+- Full guide: [Quickstart](docs/getting-started/quickstart.md)
+
+---
+
+## 📚 Documentation map
+
+| Start | Understand | Operate | Reference |
+| :--- | :--- | :--- | :--- |
+| [🏁 Quickstart](docs/getting-started/quickstart.md) | [🏛️ Architecture](docs/architecture/overview.md) | [🚢 Deployment](docs/operations/deployment.md) | [📡 API](docs/reference/api.md) |
+| [⚙️ Configuration](docs/getting-started/configuration.md) | [🔐 Security](docs/architecture/security.md) | [🧯 Troubleshooting](docs/operations/troubleshooting.md) | [📦 Package format](docs/reference/package-format.md) |
+| [🎯 First submission](docs/getting-started/first-submission.md) | [⚖️ Protocol v1](docs/judge/protocol-v1.md) | [🧪 Testing](docs/development/testing.md) | [📖 Glossary](docs/reference/glossary.md) |
+| [🧰 Package authoring](docs/judge/package-authoring.md) | [🤖 Worker runbook](docs/judge/worker.md) | [🤝 Contributing](CONTRIBUTING.md) | [📚 Docs hub](docs/README.md) |
+
+---
+
+## 🛠️ Tech stack
+
+| Layer | Technology | Role |
 | :--- | :--- | :--- |
-| **Framework** | Django 5.2+ | Core MVC framework handling DB schemas & ORM |
-| **API Layer** | Django Ninja | Blazing fast REST API generation |
-| **Validation** | Pydantic v2 | Strict data validation & typing |
-| **Real-time** | Django Channels | WebSockets for live submission updates |
-| **Task Queue** | Celery | Background processing & judge dispatching |
-| **Broker/Cache** | Redis 7+ | In-memory message broker & cache |
-| **Database** | PostgreSQL 16+ | Primary relational database |
-| **Linting/Formatting** | Ruff | Extremely fast Python linter & code formatter |
+| Control plane | Django 5.2 | Domain, ORM, admin, auth |
+| API | Django Ninja + Pydantic v2 | Typed REST + OpenAPI |
+| Real-time | Django Channels | WebSocket submission/contest feeds |
+| Async | Celery + Redis | Background tasks and maintenance |
+| Primary DB | PostgreSQL 16 | Durable relational state |
+| Cache/broker | Redis 7 | Cache, sessions, Celery, Channels |
+| Judge worker | Go 1.27 | Pull loop, package cache, execution |
+| Sandbox | go-judge 1.13.3 | Namespace/cgroup isolation |
+| Checkers | Testlib / exact / interactive | Verdict contracts |
+| Authoring | `judgeloom-package` | Generator + solution → static ZIP |
 
 ---
 
-## 📂 Project Structure
+## 📂 Project structure
 
 ```text
 judgeloom-core/
-├── apps/                 # 📦 Modular Django applications (Domain Logic)
-│   ├── accounts/         # User authentication & profiles
-│   ├── contests/         # Contest management & rules
-│   ├── problems/         # Problem sets & test data pipelines
-│   ├── submissions/      # Submission tracking & real-time updates
-│   ├── judge/            # Judge worker communication bridge
-│   └── ...               # (ratings, content, tickets, etc.)
-├── config/               # ⚙️ Core project settings & WSGI/ASGI configurations
-├── core/                 # 🧠 Shared utilities, exceptions, and event pub/sub
-├── requirements/         # 📋 Python dependency specifications
-└── tests/                # 🧪 Comprehensive Pytest test suite
+├── apps/                 # Domain apps: accounts, problems, contests, submissions, judge, ...
+├── config/               # Settings, URLs, ASGI/WSGI, Celery
+├── core/                 # Events, permissions, middleware, shared models/utilities
+├── worker/               # Go judge worker + package authoring CLI
+├── tests/                # Pytest suite
+├── docs/                 # Documentation hub and runbooks
+├── docker/               # Dockerfiles for web, judge worker, go-judge
+├── docker-compose.yml    # Development stack
+└── docker-compose.prod.yml
 ```
 
 ---
 
-## ⚖️ Judge Protocol
-
-The pull-based judge worker API is documented in [`docs/judge/protocol-v1.md`](docs/judge/protocol-v1.md). It covers registration, heartbeats, leased job claiming, package download, per-case results, and finalization.
-
-Import test data with the management command (packages are immutable and activated explicitly):
+## 🧪 Quality gates
 
 ```bash
-python manage.py import_problem_package aplusb path/to/aplusb.zip
+pytest -q
+ruff check .
+
+cd worker
+go vet ./...
+go test ./...
 ```
 
-Generate a package from a Testlib generator and model solution with the
-sandboxed `judgeloom-package` CLI; see
-[`docs/judge/package-authoring.md`](docs/judge/package-authoring.md).
-
-Run a pull-based judge worker with the Compose stack:
+Real sandbox integration (requires Docker + go-judge):
 
 ```bash
-python manage.py create_judge_token judge-worker-1
-docker compose up -d postgres redis web go-judge judge-worker
+bash worker/scripts/test-sandbox.sh
 ```
 
-See [`docs/judge/worker.md`](docs/judge/worker.md) for worker configuration,
-supported languages, and sandbox troubleshooting.
-
-## 🚀 Quick Start
-
-### 📋 Prerequisites
-Make sure you have the following installed:
-* Python 3.12 or higher
-* PostgreSQL 16+
-* Redis 7+
-* Git
-
-### 🔧 Installation & Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/ThanhNguyxnOrg/judgeloom-core.git
-   cd judgeloom-core
-   ```
-
-2. **Set up a virtual environment**
-   ```bash
-   python -m venv venv
-   
-   # On macOS/Linux:
-   source venv/bin/activate  
-   # On Windows:
-   venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements/base.txt -r requirements/testing.txt
-   ```
-
-4. **Configure your environment**
-   ```bash
-   cp .env.example .env
-   ```
-   *Open `.env` and fill in your database, Redis, and secret key configurations.
-   Production rejects the example secret; generate one with
-   `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`.*
-
-5. **Initialize the database**
-   ```bash
-   python manage.py migrate
-   python manage.py createsuperuser
-   ```
-
-6. **Run the development server**
-   ```bash
-   # Terminal 1: Django Server
-   python manage.py runserver
-   
-   # Terminal 2: Celery Worker (for background judging)
-   celery -A config worker -l INFO
-   ```
+The repository also verifies Compose renders, a production image build, and
+production secret validation. See [Testing](docs/development/testing.md) for the
+full matrix.
 
 ---
 
-## 🏛️ Architecture & Best Practices
+## 🔐 Security
 
-JudgeLoom avoids the "Fat Models, Fat Views" anti-pattern by strictly enforcing the **Service Layer Pattern**:
-- **Services (`services.py`):** Pure Python functions/classes holding business logic. Models and Views are kept thin.
-- **Event-Driven (`core.events`):** Apps communicate via an internal Publish/Subscribe mechanism to stay decoupled.
-- **Strict Typing:** All logic uses Python 3.12+ type hinting with `from __future__ import annotations`.
-
----
-
-## 🧪 Development & Testing
-
-We enforce strict code quality using `pytest` and `ruff`.
-
-**Run the Test Suite:**
-```bash
-python -m pytest tests/ -v
-```
-
-**Run Linters & Formatters:**
-```bash
-ruff check . --fix
-ruff format .
-```
+- Report vulnerabilities privately via [`SECURITY.md`](SECURITY.md).
+- Read the [security model](docs/architecture/security.md) before deployment.
+- Never commit `.env`, tokens, private packages, or database dumps.
+- Production requires explicit secrets and a TLS reverse proxy.
+- go-judge is privileged: run it on a dedicated judge host and keep it off the
+  public network.
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full workflow, coding standards, and commit conventions.
+We welcome contributions. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and the
+[development/testing guide](docs/development/testing.md).
 
-In short:
-1. Fork the project.
-2. Create your feature branch (`git checkout -b feat/amazing-feature`).
-3. Write tests and run `make check` (lint + typecheck + tests).
-4. Commit using [Conventional Commits](https://www.conventionalcommits.org/).
-5. Push and open a Pull Request against `master`.
+1. Fork and create a topic branch.
+2. Add tests and update docs.
+3. Run the quality gates.
+4. Commit with [Conventional Commits](https://www.conventionalcommits.org/).
+5. Open a PR against `master`.
 
-By participating, you agree to abide by our [Code of Conduct](./CODE_OF_CONDUCT.md).
-
----
-
-## 🔒 Security
-
-Please report vulnerabilities privately — see [`SECURITY.md`](./SECURITY.md). Do **not** open public issues for security problems.
+By participating, you agree to the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
 
 ---
 
 ## 📄 License
 
-Distributed under the **GNU Affero General Public License v3.0**. See [`LICENSE`](./LICENSE) for the full text.
+Distributed under the **GNU Affero General Public License v3.0**. See
+[`LICENSE`](LICENSE) for the full text.
 
 ---
+
 <div align="center">
-  <i>Developed with ❤️ for the Competitive Programming community.</i>
+  <sub>Built with ❤️ for the competitive programming community.</sub><br />
+  <a href="docs/README.md">Documentation hub</a> ·
+  <a href="docs/getting-started/quickstart.md">Quickstart</a> ·
+  <a href="docs/architecture/overview.md">Architecture</a> ·
+  <a href="SECURITY.md">Security</a>
 </div>

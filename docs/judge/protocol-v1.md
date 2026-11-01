@@ -1,7 +1,9 @@
+[🏠 Project README](../../README.md) · [📚 Documentation](../README.md) · [🏛️ Architecture overview](../architecture/overview.md) · [🤖 Worker runbook](worker.md)
+
 # Judge Protocol v1
 
-**Status:** implemented for the pull-based control-plane core; real sandbox execution is Plan B.  
-**Base URL:** `/api/v1/judge/`  
+**Status:** implemented for the pull-based control-plane core and the Go/go-judge worker.
+**Base URL:** `/api/v1/judge/`
 **Auth:** `Authorization: Bearer <judge-token>` on every request. The server stores only the SHA-256 of the token. Blocked judges receive `403`.
 
 The worker is a client: it polls for work, claims one job with a lease, downloads the immutable test package, executes it, and posts results. The server never runs user code.
@@ -232,6 +234,8 @@ parsed from the checker's `points` message). Compile failures are reported as
 - Gateway/auth/lease tests: `tests/test_judge_gateway.py`
 - Server scoring tests: `tests/test_judge_core.py`
 - Go worker: `worker/`
-- Worker runbook: `docs/judge/worker.md`
-- Package authoring and generator builds: `docs/judge/package-authoring.md`
+- Worker runbook: [Worker runbook](worker.md)
+- Package authoring and generator builds: [Package authoring](package-authoring.md)
+- Package reference: [Package format](../reference/package-format.md)
 - Sandbox integration harness: `worker/scripts/test-sandbox.sh`
+- Documentation hub: [docs/README.md](../README.md)

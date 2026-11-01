@@ -1,3 +1,5 @@
+[🏠 Project README](../../README.md) · [📚 Documentation](../README.md) · [📦 Package format](../reference/package-format.md) · [🤖 Worker runbook](worker.md)
+
 # Package Authoring
 
 `judgeloom-package` builds an immutable, importable test package from a
@@ -144,3 +146,6 @@ after the whole build succeeds.
   memory, process, and output limits. The control plane never runs them.
 - The generated ZIP is static; importing it does not execute the generator.
 - Keep the spec and sources under version control next to the problem package.
+- Import the result with `python manage.py import_problem_package`; see
+  [Package format](../reference/package-format.md).
+- Judge-time behavior is defined by [Protocol v1](protocol-v1.md).

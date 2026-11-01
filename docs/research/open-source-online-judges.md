@@ -1,10 +1,17 @@
+[🏠 Project README](../../README.md) · [📚 Documentation](../README.md) · [🔬 Research archive](README.md)
+
 # Open-source online judge landscape cho JudgeLoom
+
+> [!NOTE]
+> Historical research snapshot (2026-10-30), written in Vietnamese. It is not
+> operational documentation; versions and upstream facts may have changed.
+> Start with the [Quickstart](../getting-started/quickstart.md) for current setup.
 
 **Ngày:** 2026-10-30 · **Phạm vi:** nghiên cứu upstream để tìm thứ JudgeLoom có thể kế thừa, học pattern hoặc tích hợp external service. **Không** sửa code/config/test/dependency. **Phương pháp:** GitHub API để lấy license/stars/pushed_at/release; đọc raw `LICENSE`, `README`, docs/source trên default branch; không clone repo lớn. Stars là snapshot, không phải tăng trưởng. DMOJ docs bị Cloudflare chặn nên claim DMOJ lấy từ repo `DMOJ/docs` và code chính.
 
 > **Quy ước bằng chứng.** `[xác minh]` = đọc trực tiếp LICENSE/docs/code primary source có link. `[đề xuất]` = suy luận/khuyến nghị cho JudgeLoom, không phải tuyên bố upstream. License là **tóm tắt kỹ thuật, không phải tư vấn pháp lý**; trước khi copy phải rà soát LICENSE và nghĩa vụ phân phối.
 
-JudgeLoom hiện là Django 6 / Django Ninja / Channels / Celery / PostgreSQL / Redis, license `AGPL-3.0-or-later` ([pyproject.toml](../../pyproject.toml)). Báo cáo tập trung vào các gap đã biết: bridge/worker/sandbox, test data/checker sync, contest scoring/freeze, rating, scheduling, auth, event bus và migration.
+JudgeLoom hiện là Django 5.2 / Django Ninja / Channels / Celery / PostgreSQL / Redis, license `AGPL-3.0-or-later` ([pyproject.toml](../../pyproject.toml)). Báo cáo tập trung vào các gap đã biết: bridge/worker/sandbox, test data/checker sync, contest scoring/freeze, rating, scheduling, auth, event bus và migration.
 
 ---
 
@@ -175,7 +182,7 @@ JudgeLoom hiện là Django 6 / Django Ninja / Channels / Celery / PostgreSQL / 
 
 ### 5.2 Test data/checker sync
 
-**Hiện trạng.** `ProblemTestData` có `zipfile`, `generator`, `checker`, `checker_source`, `interactive_judge`; `ProblemTestCase` có `order`, `input_file`, `output_file`, `points`, `is_pretest`, `batch_number` ([problem_data.py](../../apps/problems/models/problem_data.py), [problem_data_case.py](../../apps/problems/models/problem_data_case.py)). Không có package version, manifest hash, per-case checksum hay sync API. `get_available_judge()` chỉ kiểm tra `judge.problems` tồn tại, không kiểm tra đúng version test data ([bridge_manager.py](../../apps/judge/bridge/bridge_manager.py)).
+**Hiện trạng.** `ProblemTestData` có `zipfile`, `generator`, `checker`, `checker_source`, `interactive_judge`; `ProblemTestCase` có `order`, `input_file`, `output_file`, `points`, `is_pretest`, `batch_number` ([problem_package.py](../../apps/problems/models/problem_package.py), [problem_data_case.py](../../apps/problems/models/problem_data_case.py)). Không có package version, manifest hash, per-case checksum hay sync API. `get_available_judge()` chỉ kiểm tra `judge.problems` tồn tại, không kiểm tra đúng version test data ([bridge_manager.py](../../apps/judge/bridge/bridge_manager.py)).
 
 **Nên làm.** Lưu `ProblemPackage` (version, sha256, source zip, manifest JSON) + `TestCase` (input_sha256, output_sha256, points, group). Worker gửi catalog `problem_id -> package_hash`; bridge chỉ dispatch khi hash khớp hoặc cho phép tải. API `GET /judge/problems/{id}/package?hash=...` trả zip/manifest; worker cache theo hash, xóa cache cũ. Checker chạy theo Testlib contract; lưu `checker_type` + `checker_source_hash`. Với interactive, dùng `runpipe`/go-judge stream thay vì file tĩnh. Nguồn học: DMOJ gửi `problems` kèm mtime và cập nhật `supported-problems` ([packet.py](https://raw.githubusercontent.com/DMOJ/judge-server/master/dmoj/packet.py)); Hydro cache test data giữa các judge ([README](https://raw.githubusercontent.com/hydro-dev/Hydro/master/README.md)); DOMjudge tải testcase qua `get_files` ([judgedaemon.main.php](https://raw.githubusercontent.com/DOMjudge/domjudge/main/judge/judgedaemon.main.php)); layout theo Kattis package ([spec](https://www.kattis.com/problem-package-format/)).
 

@@ -1,4 +1,11 @@
+[🏠 Project README](../../README.md) · [📚 Documentation](../README.md) · [🔬 Research archive](README.md)
+
 # Commercial/public OJ product teardown cho JudgeLoom
+
+> [!NOTE]
+> Historical research snapshot (2026-10-30), written in Vietnamese. It is not
+> operational documentation; product details may have changed. Start with the
+> [Quickstart](../getting-started/quickstart.md) for current setup.
 
 **Ngày:** 2026-10-30 · **Phạm vi:** sản phẩm OJ công khai/thương mại, bổ sung cho nghiên cứu open-source tại [`open-source-online-judges.md`](./open-source-online-judges.md). Không sửa code/config/test/dependency.
 
