@@ -18,6 +18,7 @@ from core.exceptions import ValidationError
 MAX_TEST_CASES = 200
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024
+MAX_VALIDATOR_SOURCE_BYTES = 256 * 1024
 
 
 class PackageImportService:
@@ -62,6 +63,7 @@ class PackageImportService:
                 if sum(info.file_size for info in zf.infolist()) > MAX_UNCOMPRESSED_BYTES:
                     raise ValidationError(f"Archive exceeds maximum uncompressed size ({MAX_UNCOMPRESSED_BYTES} bytes).")
                 manifest = PackageImportService._read_manifest(zf, file_names)
+                PackageImportService._validate_validator(manifest)
                 cases = PackageImportService._manifest_cases(zf, file_names, manifest, problem)
                 if cases is None:
                     cases = PackageImportService._file_cases(zf, file_names, problem)
@@ -146,6 +148,27 @@ class PackageImportService:
         if not isinstance(manifest, dict):
             raise ValidationError("manifest.json must be an object.")
         return manifest
+
+    @staticmethod
+    def _validate_validator(manifest: dict[str, Any]) -> None:
+        """Validate optional inline Testlib validator metadata."""
+
+        validator = manifest.get("validator")
+        if validator is None:
+            return
+        if not isinstance(validator, dict):
+            raise ValidationError("manifest validator must be an object.")
+
+        validator_type = str(validator.get("type", "none")).lower()
+        if validator_type not in {"none", "testlib"}:
+            raise ValidationError(f"Unsupported manifest validator type: {validator_type}")
+
+        if validator_type == "testlib":
+            source = validator.get("source")
+            if not isinstance(source, str) or not source.strip():
+                raise ValidationError("A Testlib validator requires inline source.")
+            if len(source.encode("utf-8")) > MAX_VALIDATOR_SOURCE_BYTES:
+                raise ValidationError("Validator source exceeds the maximum allowed size.")
 
     @staticmethod
     def _manifest_cases(

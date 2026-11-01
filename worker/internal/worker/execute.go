@@ -26,8 +26,9 @@ type JobExecutor struct {
 }
 
 type packageManifest struct {
-	Cases   []packageCase `json:"cases"`
-	Checker api.Checker   `json:"checker"`
+	Cases     []packageCase `json:"cases"`
+	Checker   api.Checker   `json:"checker"`
+	Validator api.Checker   `json:"validator"`
 }
 
 type packageCase struct {
@@ -127,6 +128,14 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 		checkerImpl = &checker.ExactChecker{}
 	}
 
+	var inputValidator *checker.TestlibValidator
+	if manifest.Validator.Type == "testlib" {
+		inputValidator, err = checker.NewTestlibValidator(ctx, e.Judge, manifest.Validator, memoryBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	results := make([]api.CaseResult, 0, len(cases))
 	for index, testCase := range cases {
 		input, err := readPackageFile(dir, testCase.Input)
@@ -142,6 +151,15 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 		}
 		if err := verifyFileHash(answer, testCase.AnswerSHA256); err != nil {
 			return nil, err
+		}
+		if inputValidator != nil {
+			validated, err := inputValidator.Validate(ctx, input, timeLimit, memoryBytes)
+			if err != nil {
+				return nil, err
+			}
+			if validated.Status != "AC" {
+				return nil, fmt.Errorf("test data validator rejected %s: %s", testCase.Input, validated.Message)
+			}
 		}
 
 		run, err := e.Runner.CompileAndRun(ctx, job.Language, job.Source, input, timeLimit, memoryBytes)

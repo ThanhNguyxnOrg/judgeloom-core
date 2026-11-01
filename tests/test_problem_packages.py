@@ -165,6 +165,54 @@ class TestPackageImportService:
         with pytest.raises(ValidationError, match="unknown groups"):
             PackageImportService.import_zip(problem, upload)
 
+    def test_import_zip_accepts_inline_testlib_validator(self, problem):
+        manifest = {
+            "validator": {"type": "testlib", "source": "int main() { return 0; }"},
+            "cases": [{"input": "data/01.in", "answer": "data/01.ans"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        package = PackageImportService.import_zip(problem, upload)
+        assert package.manifest["validator"]["type"] == "testlib"
+
+    def test_import_zip_rejects_unknown_validator_type(self, problem):
+        manifest = {
+            "validator": {"type": "python"},
+            "cases": [{"input": "data/01.in", "answer": "data/01.ans"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="validator type"):
+            PackageImportService.import_zip(problem, upload)
+
+    def test_import_zip_rejects_testlib_validator_without_source(self, problem):
+        manifest = {
+            "validator": {"type": "testlib"},
+            "cases": [{"input": "data/01.in", "answer": "data/01.ans"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="requires inline source"):
+            PackageImportService.import_zip(problem, upload)
+
     def test_import_zip_rejects_non_numeric_points(self, problem):
         manifest = {
             "cases": [
