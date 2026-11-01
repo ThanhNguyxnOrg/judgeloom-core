@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Any
 from django.shortcuts import get_object_or_404
 from ninja import Router
 
+from apps.contests.models import Contest
+from apps.contests.services.contest_service import ContestService
+from apps.problems.models import Problem
 from apps.tickets.api.schemas import (
     TicketCreateIn,
     TicketDetailOut,
@@ -50,6 +53,19 @@ def _require_staff(user: Any) -> None:
     _require_authenticated(user)
     if not getattr(user, "is_staff", False):
         raise PermissionDeniedError("Staff access required.")
+
+
+def _validate_links(user: Any, problem_id: int | None, contest_id: int | None) -> None:
+    """Reject ticket links to resources the author cannot see."""
+
+    if problem_id is not None:
+        problem = Problem.objects.filter(pk=problem_id).first()
+        if problem is None or not problem.is_accessible_by(user):
+            raise PermissionDeniedError("You do not have access to the linked problem.")
+    if contest_id is not None:
+        contest = Contest.objects.filter(pk=contest_id).first()
+        if contest is None or not ContestService.can_see_contest(user, contest):
+            raise PermissionDeniedError("You do not have access to the linked contest.")
 
 
 def _can_access_ticket(user: Any, ticket: Ticket) -> bool:
@@ -126,6 +142,7 @@ def create_ticket(request: HttpRequest, payload: TicketCreateIn) -> TicketDetail
     """Create a new support ticket."""
 
     _require_authenticated(request.user)
+    _validate_links(request.user, payload.linked_problem_id, payload.linked_contest_id)
     ticket = TicketService.create_ticket(
         title=payload.title,
         author=request.user,
@@ -159,6 +176,7 @@ def update_ticket(request: HttpRequest, ticket_id: int, payload: TicketUpdateIn)
         raise PermissionDeniedError("You do not have permission to update this ticket.")
 
     data = payload.model_dump(exclude_none=True)
+    _validate_links(request.user, data.get("linked_problem_id"), data.get("linked_contest_id"))
     ticket = TicketService.update_ticket(ticket, **data)
     return _to_ticket_detail_out(ticket)
 
