@@ -59,6 +59,11 @@ celerybeat.pid
 *.log
 logs/
 
+# ─── Local agent / workspace artifacts ─────────────────────────────────────
+.superpowers/
+static_analysis_semgrep_*/
+.tmp*
+
 # ─── Misc ───────────────────────────────────────────────────────────────────
 *.bak
 *.tmp
