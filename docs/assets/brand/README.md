@@ -10,8 +10,9 @@ alone or inside the wordmark.
 
 | File | Use |
 | :--- | :--- |
-| [`../logo.svg`](../logo.svg) | Primary horizontal lockup, vector |
-| [`../logo.png`](../logo.png) | Primary lockup, 1600×480 RGBA |
+| [`../logo.svg`](../logo.svg) | Primary horizontal lockup, vector (light theme) |
+| [`../logo-dark.svg`](../logo-dark.svg) | Horizontal lockup for dark backgrounds |
+| [`../logo.png`](../logo.png) | Primary lockup, 1600×480 RGBA (light fallback) |
 | [`../social-preview.svg`](../social-preview.svg) | GitHub/social preview, vector |
 | [`../social-preview.png`](../social-preview.png) | Social preview, 1280×640 |
 | [`judgeloom-mark-mono.svg`](judgeloom-mark-mono.svg) | One-colour mark, vector |
@@ -44,6 +45,8 @@ as vector paths, so no font installation is required to render them.
 ## Usage
 
 - Prefer SVG for web and print; use PNG only where the platform requires it.
+- Use the dark SVG on dark backgrounds (GitHub dark mode, Night UI); the light
+  SVG and PNG are for light backgrounds.
 - Keep the mark’s clear space at least the width of one loop.
 - Use the one-colour mark on busy or low-resolution backgrounds.
 - Do not stretch, rotate, recolor outside the palette, or add effects.
