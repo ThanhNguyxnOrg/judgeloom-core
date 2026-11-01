@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
@@ -14,6 +15,9 @@ if TYPE_CHECKING:
     from apps.accounts.models import User
 
     pass
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -185,13 +189,30 @@ class AuthService:
         user.set_password(new_password)
         user.token_version += 1
         user.save(update_fields=["password", "token_version", "updated_at"])
+        AuthService._disconnect_user_channels(user.pk)
 
     @staticmethod
     def revoke_tokens(user: User) -> None:
-        """Invalidate all outstanding JWTs for the user."""
+        """Invalidate all outstanding JWTs and live feeds for the user."""
 
         user.token_version += 1
         user.save(update_fields=["token_version", "updated_at"])
+        AuthService._disconnect_user_channels(user.pk)
+
+    @staticmethod
+    def _disconnect_user_channels(user_id: int) -> None:
+        """Request that live WebSocket consumers close for a user."""
+
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+
+        layer = get_channel_layer()
+        if layer is None:
+            return
+        try:
+            async_to_sync(layer.group_send)(f"user_{user_id}", {"type": "force.disconnect"})
+        except Exception:
+            logger.exception("Failed to disconnect live channels for user %s", user_id)
 
     @staticmethod
     def generate_api_token(user: User) -> str:
@@ -222,6 +243,7 @@ class AuthService:
         user.ban_reason = reason.strip()
         user.token_version += 1
         user.save(update_fields=["is_banned", "ban_reason", "token_version", "updated_at"])
+        AuthService._disconnect_user_channels(user.pk)
 
     @staticmethod
     def unban_user(user: User) -> None:

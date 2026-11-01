@@ -29,7 +29,9 @@ class SubmissionConsumer(AsyncJsonWebsocketConsumer):
             return
 
         self.group_name = f"submission_{submission_id}"
+        self.user_group_name = f"user_{user.pk}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
         await self.accept()
 
     @database_sync_to_async
@@ -45,7 +47,17 @@ class SubmissionConsumer(AsyncJsonWebsocketConsumer):
         Args:
             close_code: WebSocket close status code.
         """
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        group_name = getattr(self, "group_name", None)
+        if group_name:
+            await self.channel_layer.group_discard(group_name, self.channel_name)
+        user_group_name = getattr(self, "user_group_name", None)
+        if user_group_name:
+            await self.channel_layer.group_discard(user_group_name, self.channel_name)
+
+    async def force_disconnect(self, event: dict[str, Any]) -> None:
+        """Close a feed after the account is banned or tokens are revoked."""
+
+        await self.close(code=4401)
 
     async def receive_json(self, content: dict[str, Any], **kwargs: Any) -> None:
         """Handle incoming messages from clients.

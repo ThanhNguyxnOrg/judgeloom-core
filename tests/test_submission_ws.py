@@ -5,6 +5,7 @@ from io import BytesIO
 
 import pytest
 from channels.db import database_sync_to_async
+from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -76,3 +77,23 @@ async def test_submission_consumer_receives_case_update(user, problem, language,
     assert payload["cases"][0]["case_number"] == 1
     assert payload["case_total"] == 1
     assert payload["case_passed"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_submission_consumer_closes_on_user_revocation(user, problem, language):
+    submission = await database_sync_to_async(make_submission)(user, problem, language)
+    communicator = WebsocketCommunicator(
+        SubmissionConsumer.as_asgi(),
+        f"/ws/submissions/{submission.pk}/",
+    )
+    communicator.scope["user"] = user
+    communicator.scope["url_route"] = {"kwargs": {"submission_id": submission.pk}}
+    connected, _ = await communicator.connect()
+    assert connected is True
+
+    layer = get_channel_layer()
+    await layer.group_send(f"user_{user.pk}", {"type": "force.disconnect"})
+    output = await communicator.receive_output(timeout=2)
+    assert output["type"] == "websocket.close"
+    assert output["code"] == 4401
