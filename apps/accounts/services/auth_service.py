@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, cast
 import jwt
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from core.exceptions import ValidationError
 
@@ -65,6 +67,7 @@ class AuthService:
         if user_model.objects.filter(email__iexact=normalized_email).exists():
             raise ValidationError("Email is already in use.")
 
+        AuthService._validate_password(password)
         return user_model.objects.create_user(
             username=normalized_username,
             email=normalized_email,
@@ -186,10 +189,21 @@ class AuthService:
         if len(new_password) < 8:
             raise ValidationError("New password must be at least 8 characters.")
 
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as exc:
+            raise ValidationError(" ".join(exc.messages)) from exc
         user.set_password(new_password)
         user.token_version += 1
         user.save(update_fields=["password", "token_version", "updated_at"])
         AuthService._disconnect_user_channels(user.pk)
+
+    @staticmethod
+    def _validate_password(password: str, user: User | None = None) -> None:
+        try:
+            validate_password(password, user=user)
+        except DjangoValidationError as exc:
+            raise ValidationError(" ".join(exc.messages)) from exc
 
     @staticmethod
     def revoke_tokens(user: User) -> None:
