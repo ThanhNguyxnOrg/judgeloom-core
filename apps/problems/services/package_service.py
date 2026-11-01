@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import zipfile
 from collections import defaultdict
 from io import BytesIO
@@ -19,6 +20,7 @@ MAX_TEST_CASES = 200
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024
 MAX_VALIDATOR_SOURCE_BYTES = 256 * 1024
+MAX_MANIFEST_POINTS = 1_000_000.0
 
 
 class PackageImportService:
@@ -196,8 +198,12 @@ class PackageImportService:
                 parsed_points = None if points is None else float(points)
             except (TypeError, ValueError) as exc:
                 raise ValidationError(f"Manifest case points must be numeric: {points!r}") from exc
-            if parsed_points is not None and parsed_points < 0:
-                raise ValidationError("Manifest case points cannot be negative.")
+            if parsed_points is not None and (
+                not math.isfinite(parsed_points)
+                or parsed_points < 0
+                or parsed_points > MAX_MANIFEST_POINTS
+            ):
+                raise ValidationError("Manifest case points must be finite and within the allowed range.")
             cases.append(
                 {
                     "input": input_file,
@@ -290,8 +296,8 @@ class PackageImportService:
                 points = float(item.get("points", 0) or 0)
             except (TypeError, ValueError) as exc:
                 raise ValidationError(f"Manifest group points must be numeric: {group_id}") from exc
-            if points < 0:
-                raise ValidationError(f"Manifest group points cannot be negative: {group_id}")
+            if not math.isfinite(points) or points < 0 or points > MAX_MANIFEST_POINTS:
+                raise ValidationError(f"Manifest group points must be finite and within range: {group_id}")
             group_defs[group_id] = {"id": group_id, "mode": mode, "points": points}
 
         case_groups = {str(case["group"]) for case in cases}

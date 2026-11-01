@@ -213,6 +213,45 @@ class TestPackageImportService:
         with pytest.raises(ValidationError, match="requires inline source"):
             PackageImportService.import_zip(problem, upload)
 
+    def test_import_zip_rejects_non_finite_case_points(self, problem):
+        manifest = {
+            "cases": [
+                {
+                    "input": "data/01.in",
+                    "answer": "data/01.ans",
+                    "points": float("nan"),
+                    "group": "default",
+                }
+            ],
+            "groups": [{"id": "default", "points": 100, "mode": "sum"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="finite"):
+            PackageImportService.import_zip(problem, upload)
+
+    def test_import_zip_rejects_excessive_group_points(self, problem):
+        manifest = {
+            "cases": [{"input": "data/01.in", "answer": "data/01.ans"}],
+            "groups": [{"id": "default", "points": 1e12, "mode": "sum"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="finite"):
+            PackageImportService.import_zip(problem, upload)
+
     def test_import_zip_rejects_non_numeric_points(self, problem):
         manifest = {
             "cases": [
