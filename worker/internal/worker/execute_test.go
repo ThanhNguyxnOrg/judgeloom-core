@@ -279,6 +279,44 @@ func TestExecuteWorksWithEmptyCheckerType(t *testing.T) {
 	}
 }
 
+func TestExecuteHonorsNoneChecker(t *testing.T) {
+	payload := zipPackage(t, map[string]any{
+		"checker": map[string]any{"type": "none"},
+		"cases": []map[string]any{
+			{"input": "data/01.in", "answer": "data/01.ans", "points": 100, "group": "default"},
+		},
+		"groups": []map[string]any{{"id": "default", "points": 100, "mode": "sum"}},
+	})
+	sum := sha256.Sum256(payload)
+	digest := hex.EncodeToString(sum[:])
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"status": "Accepted", "exitStatus": 0, "files": map[string]string{"stdout": "not the answer\n"}},
+		})
+	}))
+	defer server.Close()
+
+	judge := &executor.GoJudge{BaseURL: server.URL, Client: server.Client()}
+	store := &store.Store{Root: t.TempDir(), Client: fakeDownloader{payload: payload}}
+	jobExecutor := &JobExecutor{Store: store, Runner: &runner.Runner{Judge: judge}, Judge: judge}
+	job := &api.Job{
+		Language: "PY3",
+		Source:   "print(1)",
+		Limits:   api.Limits{Time: 1, Memory: 1024},
+		Package:  api.Package{ProblemID: 7, SHA256: digest},
+		Cases:    []api.Case{{ID: "1", Input: "data/01.in", Answer: "data/01.ans", Points: 100, Group: "default"}},
+		Checker:  api.Checker{Type: "none"},
+	}
+
+	cases, err := jobExecutor.Execute(context.Background(), job)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if len(cases) != 1 || cases[0].Status != "AC" || cases[0].Points != 100 {
+		t.Fatalf("unexpected none-checker cases: %+v", cases)
+	}
+}
+
 func TestExecuteRejectsMissingPackage(t *testing.T) {
 	judge := &executor.GoJudge{}
 	store := &store.Store{Root: t.TempDir(), Client: fakeDownloader{payload: []byte("not a zip")}}

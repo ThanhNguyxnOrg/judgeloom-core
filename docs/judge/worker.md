@@ -67,8 +67,13 @@ minimal; the execution image contains Python 3 and g++.
 - `CPP17` — `main.cpp`, compile with `g++ -O2 -std=c++17 -o main main.cpp`,
   run the cached binary as `/w/main`
 
-Checkers: exact comparison and Testlib (exit codes `0/1/2/3/5`; `quitp`
-points parsed from stderr).
+Checkers: exact comparison, Testlib (exit codes `0/1/2/3/5`; `quitp` points
+parsed from stderr), and `none`. The vendored Testlib header is compiled into
+trusted checker/validator/generator sandboxes automatically.
+
+Packages can be generated from a Testlib generator plus a model solution with
+`judgeloom-package`; see `docs/judge/package-authoring.md`. Generation happens
+before import, so the judge always reads static inputs and answers.
 
 ## Troubleshooting
 
@@ -93,8 +98,9 @@ go test ./...              # unit tests, Windows or Linux
 bash worker/scripts/test-sandbox.sh  # real go-judge integration, Linux/WSL/Docker
 ```
 
-The real sandbox test covers Python/C++ AC, WA, TLE, MLE, RTE and CE. It skips
-when `GO_JUDGE_URL` is unset.
+The real sandbox test covers Python/C++ AC, WA, TLE, MLE, RTE and CE, the
+interactive checker, and a full Testlib generator → validator → solution →
+checker package build. It skips when `GO_JUDGE_URL` is unset.
 
 ## Deployment notes
 

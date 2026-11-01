@@ -77,6 +77,10 @@ Import test data with the management command (packages are immutable and activat
 python manage.py import_problem_package aplusb path/to/aplusb.zip
 ```
 
+Generate a package from a Testlib generator and model solution with the
+sandboxed `judgeloom-package` CLI; see
+[`docs/judge/package-authoring.md`](docs/judge/package-authoring.md).
+
 Run a pull-based judge worker with the Compose stack:
 
 ```bash

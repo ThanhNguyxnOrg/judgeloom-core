@@ -36,6 +36,10 @@ func TestTestlibValidatorCompilesOnceAndValidatesInput(t *testing.T) {
 		if cached["fileId"] != "validator-file" {
 			t.Fatalf("unexpected validator cache: %+v", cached)
 		}
+		stdin := cmd["files"].([]any)[0].(map[string]any)
+		if stdin["content"] != "1 2\n" {
+			t.Fatalf("unexpected validator stdin: %+v", stdin)
+		}
 		_ = json.NewEncoder(w).Encode([]map[string]any{{
 			"status":     "Accepted",
 			"exitStatus": 0,

@@ -165,6 +165,50 @@ class TestPackageImportService:
         with pytest.raises(ValidationError, match="unknown groups"):
             PackageImportService.import_zip(problem, upload)
 
+    def test_import_zip_preserves_generator_provenance(self, problem):
+        input_data = b"1 2\n"
+        answer_data = b"3\n"
+        manifest = {
+            "schema": 1,
+            "problem_code": "aplusb",
+            "time_limit": 2.0,
+            "memory_limit": 262144,
+            "checker": {"type": "exact"},
+            "generator": {
+                "language": "CPP17",
+                "source_sha256": "a" * 64,
+                "cases": [{"id": "01", "args": ["1", "2"]}],
+            },
+            "solution": {"language": "CPP17", "source_sha256": "b" * 64},
+            "authoring": {"tool": "judgeloom-package"},
+            "cases": [
+                {
+                    "id": "01",
+                    "input": "data/01.in",
+                    "answer": "data/01.ans",
+                    "input_sha256": hashlib.sha256(input_data).hexdigest(),
+                    "answer_sha256": hashlib.sha256(answer_data).hexdigest(),
+                    "points": 100,
+                    "group": "default",
+                }
+            ],
+            "groups": [{"id": "default", "points": 100, "mode": "sum"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": input_data,
+                "data/01.ans": answer_data,
+            }
+        )
+
+        package = PackageImportService.import_zip(problem, upload)
+
+        assert package.manifest["generator"] == manifest["generator"]
+        assert package.manifest["solution"] == manifest["solution"]
+        assert package.manifest["authoring"] == {"tool": "judgeloom-package"}
+        assert package.test_cases.count() == 1
+
     def test_import_zip_rejects_interactive_checker_without_source(self, problem):
         manifest = {
             "checker": {"type": "interactive"},

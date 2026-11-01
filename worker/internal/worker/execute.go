@@ -121,8 +121,11 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 		checkerSpec = job.Checker
 	}
 	checkerImpl := e.Checker
-	if checkerSpec.Type == "testlib" {
+	switch checkerSpec.Type {
+	case "testlib":
 		checkerImpl = &checker.TestlibChecker{Judge: e.Judge}
+	case "none":
+		checkerImpl = checker.NoopChecker{}
 	}
 	if checkerImpl == nil {
 		checkerImpl = &checker.ExactChecker{}

@@ -34,6 +34,18 @@ func (r *Runner) Prepare(
 	source string,
 	memoryLimit int64,
 ) (executor.RunSpec, error) {
+	return r.PrepareWithFiles(ctx, languageKey, source, memoryLimit, nil)
+}
+
+// PrepareWithFiles compiles trusted package code (checkers, validators,
+// generators) with extra files such as testlib.h.
+func (r *Runner) PrepareWithFiles(
+	ctx context.Context,
+	languageKey string,
+	source string,
+	memoryLimit int64,
+	extraFiles map[string][]byte,
+) (executor.RunSpec, error) {
 	profile, ok := language.Get(languageKey)
 	if !ok {
 		return executor.RunSpec{}, ErrUnsupportedLanguage
@@ -46,10 +58,15 @@ func (r *Runner) Prepare(
 	runSpec := profile.Run
 	runSpec.Env = env
 
+	copyIn := map[string][]byte{profile.SourceName: []byte(source)}
+	for name, content := range extraFiles {
+		copyIn[name] = content
+	}
+
 	if profile.Compile != nil {
 		compileSpec := *profile.Compile
 		compileSpec.Env = env
-		compileSpec.CopyIn = map[string][]byte{profile.SourceName: []byte(source)}
+		compileSpec.CopyIn = copyIn
 		compileSpec.CPUTime = 10 * time.Second
 		compileSpec.ClockTime = 20 * time.Second
 		compileSpec.MemoryBytes = memoryLimit
@@ -71,7 +88,7 @@ func (r *Runner) Prepare(
 		}
 		runSpec.CopyInCached = map[string]string{"main": fileID}
 	} else {
-		runSpec.CopyIn = map[string][]byte{profile.SourceName: []byte(source)}
+		runSpec.CopyIn = copyIn
 	}
 	return runSpec, nil
 }
@@ -88,6 +105,23 @@ func (r *Runner) CompileAndRun(
 	if err != nil {
 		return executor.RunResult{}, err
 	}
+	return r.RunPrepared(ctx, runSpec, input, nil, timeLimit, memoryLimit)
+}
+
+// RunPrepared runs a compiled/prepared sandbox spec with optional argv.
+func (r *Runner) RunPrepared(
+	ctx context.Context,
+	prepared executor.RunSpec,
+	input []byte,
+	args []string,
+	timeLimit time.Duration,
+	memoryLimit int64,
+) (executor.RunResult, error) {
+	if r.Judge == nil {
+		return executor.RunResult{}, errors.New("go-judge executor is not configured")
+	}
+	runSpec := prepared
+	runSpec.Args = append(append([]string(nil), prepared.Args...), args...)
 	runSpec.StdIn = input
 	runSpec.CPUTime = timeLimit
 	runSpec.ClockTime = 2 * timeLimit

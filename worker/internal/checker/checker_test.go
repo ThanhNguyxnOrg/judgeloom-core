@@ -12,6 +12,13 @@ import (
 	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/executor"
 )
 
+func TestNoopCheckerAcceptsAnything(t *testing.T) {
+	result, err := (NoopChecker{}).Check(context.Background(), api.Checker{Type: "none"}, []byte("1"), []byte("2"), []byte("anything"), time.Second, 1024)
+	if err != nil || result.Status != "AC" {
+		t.Fatalf("unexpected result: %+v err=%v", result, err)
+	}
+}
+
 func TestExactChecker(t *testing.T) {
 	got, _ := (ExactChecker{}).Check(context.Background(), api.Checker{}, []byte("1 2\n"), []byte("3\n"), []byte("3\r\n"), time.Second, 1024)
 	if got.Status != "AC" {
@@ -62,6 +69,43 @@ func TestTestlibCheckerMapsExitCodes(t *testing.T) {
 				t.Fatalf("expected compile + run, got %d calls", calls)
 			}
 		})
+	}
+}
+
+func TestTestlibCheckerPassesOutputBeforeAnswer(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var request struct {
+			Cmd []struct {
+				Args []string `json:"args"`
+			} `json:"cmd"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Fatal(err)
+		}
+		if calls == 1 {
+			_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "Accepted", "fileIds": map[string]string{"checker": "chk-1"}}})
+			return
+		}
+		args := request.Cmd[0].Args
+		want := []string{"/w/checker", "/w/input.txt", "/w/output.txt", "/w/answer.txt"}
+		if len(args) != len(want) {
+			t.Fatalf("unexpected args: %v", args)
+		}
+		for index := range want {
+			if args[index] != want[index] {
+				t.Fatalf("args[%d] = %q, want %q", index, args[index], want[index])
+			}
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "Accepted", "exitStatus": 0}})
+	}))
+	defer server.Close()
+
+	checker := &TestlibChecker{Judge: &executor.GoJudge{BaseURL: server.URL, Client: server.Client()}}
+	result, err := checker.Check(context.Background(), api.Checker{Type: "testlib", Source: "checker"}, []byte("1"), []byte("2"), []byte("3"), time.Second, 1024*1024)
+	if err != nil || result.Status != "AC" {
+		t.Fatalf("unexpected result: %+v err=%v", result, err)
 	}
 }
 

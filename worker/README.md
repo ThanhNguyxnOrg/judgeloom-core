@@ -23,6 +23,16 @@ docker compose logs -f judge-worker
 `go-judge` runs privileged because it creates Linux namespaces/cgroups. Do not
 expose it publicly. Supported v1 languages: `PY3`, `CPP17`.
 
+## Build a test package
+
+`judgeloom-package` turns a generator + model solution into a static,
+importable ZIP. See `docs/judge/package-authoring.md` for the spec format.
+
+```bash
+GO_JUDGE_URL=http://localhost:5050 GO_JUDGE_TOKEN=dev-judge-token \
+  go run ./cmd/judgeloom-package -spec package.json -out aplusb.zip
+```
+
 ## Run the unit tests
 
 ```bash

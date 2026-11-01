@@ -2,13 +2,16 @@ package checker
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/api"
 	"github.com/ThanhNguyxnOrg/judgeloom-worker/internal/executor"
+	"github.com/ThanhNguyxnOrg/judgeloom-worker/third_party/testlib"
 )
 
 var pointsPattern = regexp.MustCompile(`(?i)points?\s+([0-9]+(?:\.[0-9]+)?)`)
@@ -32,8 +35,17 @@ func (ExactChecker) Check(_ context.Context, _ api.Checker, input, answer, outpu
 	return Result{Status: "WA", Message: "output differs"}, nil
 }
 
+type NoopChecker struct{}
+
+func (NoopChecker) Check(context.Context, api.Checker, []byte, []byte, []byte, time.Duration, int64) (Result, error) {
+	return Result{Status: "AC"}, nil
+}
+
 type TestlibChecker struct {
 	Judge *executor.GoJudge
+
+	mu     sync.Mutex
+	fileID string
 }
 
 func (c *TestlibChecker) Check(
@@ -50,38 +62,23 @@ func (c *TestlibChecker) Check(
 		return Result{Status: "IE", Message: "go-judge executor is not configured"}, nil
 	}
 
-	compiled, err := c.Judge.Run(ctx, executor.RunSpec{
-		Args:          []string{"g++", "-O2", "-std=c++17", "-o", "checker", "checker.cpp"},
-		Env:           []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8"},
-		CopyIn:        map[string][]byte{"checker.cpp": []byte(spec.Source)},
-		CopyOutCached: []string{"checker"},
-		CPUTime:       10 * time.Second,
-		ClockTime:     20 * time.Second,
-		MemoryBytes:   compileMemoryLimit(memoryLimit),
-		ProcLimit:     64,
-	})
+	fileID, err := c.compiled(ctx, spec, memoryLimit)
 	if err != nil {
 		return Result{Status: "IE", Message: err.Error()}, nil
 	}
-	if compiled.Status != "AC" {
-		return Result{Status: "IE", Message: checkerMessage(compiled)}, nil
-	}
-	fileID := compiled.FileIDs["checker"]
-	if fileID == "" {
-		return Result{Status: "IE", Message: "checker binary was not produced"}, nil
-	}
 
+	limit := checkerTimeLimit(timeLimit)
 	ran, err := c.Judge.Run(ctx, executor.RunSpec{
-		Args: []string{"/w/checker", "/w/input.txt", "/w/answer.txt", "/w/output.txt"},
+		Args: []string{"/w/checker", "/w/input.txt", "/w/output.txt", "/w/answer.txt"},
 		CopyIn: map[string][]byte{
 			"input.txt":  input,
 			"answer.txt": answer,
 			"output.txt": output,
 		},
 		CopyInCached: map[string]string{"checker": fileID},
-		CPUTime:      timeLimit,
-		ClockTime:    2 * timeLimit,
-		MemoryBytes:  memoryLimit,
+		CPUTime:      limit,
+		ClockTime:    2 * limit,
+		MemoryBytes:  compileMemoryLimit(memoryLimit),
 		ProcLimit:    64,
 	})
 	if err != nil {
@@ -105,12 +102,51 @@ func (c *TestlibChecker) Check(
 	}
 }
 
+func (c *TestlibChecker) compiled(ctx context.Context, spec api.Checker, memoryLimit int64) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.fileID != "" {
+		return c.fileID, nil
+	}
+
+	compiled, err := c.Judge.Run(ctx, executor.RunSpec{
+		Args:          []string{"g++", "-O2", "-std=c++17", "-o", "checker", "checker.cpp"},
+		Env:           []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8"},
+		CopyIn:        map[string][]byte{"checker.cpp": []byte(spec.Source), "testlib.h": testlib.Header},
+		CopyOutCached: []string{"checker"},
+		CPUTime:       10 * time.Second,
+		ClockTime:     20 * time.Second,
+		MemoryBytes:   compileMemoryLimit(memoryLimit),
+		ProcLimit:     64,
+	})
+	if err != nil {
+		return "", err
+	}
+	if compiled.Status != "AC" {
+		return "", errors.New(checkerMessage(compiled))
+	}
+	fileID := compiled.FileIDs["checker"]
+	if fileID == "" {
+		return "", errors.New("checker binary was not produced")
+	}
+	c.fileID = fileID
+	return fileID, nil
+}
+
 func compileMemoryLimit(memoryLimit int64) int64 {
 	const minimum = 256 << 20
 	if memoryLimit < minimum {
 		return minimum
 	}
 	return memoryLimit
+}
+
+func checkerTimeLimit(limit time.Duration) time.Duration {
+	const minimum = 2 * time.Second
+	if limit < minimum {
+		return minimum
+	}
+	return limit
 }
 
 func normalize(data []byte) string {

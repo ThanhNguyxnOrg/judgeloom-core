@@ -182,6 +182,11 @@ The package archive is content-addressed by SHA-256 and contains `manifest.json`
 
 Group modes are `sum` and `min`; group scores are capped at the group's points. `partial_score=false` means any non-AC case yields `WA` with zero points; `partial_score=true` enables `PT` and subtask scores. The checker field is carried for the real worker; v1's fake-worker tests use exact comparison and server scoring.
 
+Packages built by `judgeloom-package` may also carry optional `generator`,
+`solution`, and `authoring` metadata keys. They are preserved for provenance
+but ignored by judging because the ZIP already contains the static `data/`
+files. See `docs/judge/package-authoring.md`.
+
 ## Status codes
 
 | Code | Meaning |
@@ -228,4 +233,5 @@ parsed from the checker's `points` message). Compile failures are reported as
 - Server scoring tests: `tests/test_judge_core.py`
 - Go worker: `worker/`
 - Worker runbook: `docs/judge/worker.md`
+- Package authoring and generator builds: `docs/judge/package-authoring.md`
 - Sandbox integration harness: `worker/scripts/test-sandbox.sh`

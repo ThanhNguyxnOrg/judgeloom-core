@@ -60,13 +60,14 @@ func (c *InteractiveChecker) Check(
 	participant.ClockTime = 2 * timeLimit
 	participant.MemoryBytes = memoryLimit
 	participant.ProcLimit = 64
+	interactorLimit := checkerTimeLimit(2 * timeLimit)
 	interactor := executor.RunSpec{
 		Args:         []string{"/w/interactor", "/w/input.txt"},
 		CopyIn:       map[string][]byte{"input.txt": input},
 		CopyInCached: map[string]string{"interactor": interactorFileID},
-		CPUTime:      2 * timeLimit,
-		ClockTime:    4 * timeLimit,
-		MemoryBytes:  memoryLimit,
+		CPUTime:      interactorLimit,
+		ClockTime:    2 * interactorLimit,
+		MemoryBytes:  compileMemoryLimit(memoryLimit),
 		ProcLimit:    64,
 	}
 
