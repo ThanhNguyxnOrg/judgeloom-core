@@ -29,9 +29,12 @@ func main() {
 	if err := cache.Cleanup(72 * time.Hour); err != nil {
 		log.Printf("package cache cleanup failed: %v", err)
 	}
-	judge := &executor.GoJudge{BaseURL: cfg.GoJudgeURL}
+	judge := &executor.GoJudge{BaseURL: cfg.GoJudgeURL, AuthToken: cfg.GoJudgeToken}
 	selfTestCtx, cancelSelfTest := context.WithTimeout(context.Background(), 5*time.Second)
 	version, err := judge.Version(selfTestCtx)
+	if err == nil {
+		err = judge.CheckAuth(selfTestCtx)
+	}
 	cancelSelfTest()
 	if err != nil {
 		log.Fatalf("go-judge self-test failed: %v", err)

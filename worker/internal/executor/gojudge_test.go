@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -25,6 +26,60 @@ func TestGoJudgeVersion(t *testing.T) {
 	}
 	if info.BuildVersion != "v1.13.3" || info.GoVersion != "go1.27.2" {
 		t.Fatalf("unexpected version: %+v", info)
+	}
+}
+
+func TestGoJudgeSendsAuthToken(t *testing.T) {
+	seen := map[string]string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen[r.URL.Path] = r.Header.Get("Authorization")
+		if r.URL.Path == "/version" {
+			_, _ = w.Write([]byte(`{"buildVersion":"v1.13.3"}`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"status": "Accepted"}})
+	}))
+	defer server.Close()
+
+	judge := &GoJudge{BaseURL: server.URL, Client: server.Client(), AuthToken: "sandbox-secret", RetryDelay: time.Millisecond}
+	if _, err := judge.Version(context.Background()); err != nil {
+		t.Fatalf("Version: %v", err)
+	}
+	if err := judge.CheckAuth(context.Background()); err != nil {
+		t.Fatalf("CheckAuth: %v", err)
+	}
+	if _, err := judge.Run(context.Background(), RunSpec{Args: []string{"true"}}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	for _, path := range []string{"/version", "/file/__judgeloom_worker_probe__", "/run"} {
+		if seen[path] != "Bearer sandbox-secret" {
+			t.Fatalf("%s Authorization = %q", path, seen[path])
+		}
+	}
+}
+
+func TestGoJudgeCheckAuthRejectsUnauthorized(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	judge := &GoJudge{BaseURL: server.URL, Client: server.Client()}
+	err := judge.CheckAuth(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "worker token") {
+		t.Fatalf("expected token rejection, got %v", err)
+	}
+}
+
+func TestGoJudgeCheckAuthAcceptsMissingProbeFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	judge := &GoJudge{BaseURL: server.URL, Client: server.Client()}
+	if err := judge.CheckAuth(context.Background()); err != nil {
+		t.Fatalf("CheckAuth: %v", err)
 	}
 }
 

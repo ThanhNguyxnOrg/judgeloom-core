@@ -17,6 +17,7 @@ import (
 type GoJudge struct {
 	BaseURL    string
 	Client     *http.Client
+	AuthToken  string
 	RetryDelay time.Duration
 }
 
@@ -77,6 +78,7 @@ func (g *GoJudge) Version(ctx context.Context) (VersionInfo, error) {
 	if err != nil {
 		return VersionInfo{}, err
 	}
+	g.authorize(req)
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return VersionInfo{}, err
@@ -97,6 +99,29 @@ func (g *GoJudge) Version(ctx context.Context) (VersionInfo, error) {
 		return VersionInfo{}, errors.New("go-judge version response is missing buildVersion")
 	}
 	return info, nil
+}
+
+// CheckAuth verifies a token-protected endpoint; /version is public.
+func (g *GoJudge) CheckAuth(ctx context.Context) error {
+	httpClient := g.Client
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(g.BaseURL, "/")+"/file/__judgeloom_worker_probe__", nil)
+	if err != nil {
+		return err
+	}
+	g.authorize(req)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	if resp.StatusCode == http.StatusUnauthorized {
+		return errors.New("go-judge rejected the worker token; check GO_JUDGE_TOKEN")
+	}
+	return nil
 }
 
 func (g *GoJudge) Run(ctx context.Context, spec RunSpec) (RunResult, error) {
@@ -180,6 +205,7 @@ func (g *GoJudge) doRun(ctx context.Context, request runRequest) ([]runResult, e
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	g.authorize(req)
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -229,6 +255,12 @@ func toRunResult(result runResult, stdoutKey, stderrKey string) RunResult {
 
 func filePtr(file cmdFile) *cmdFile {
 	return &file
+}
+
+func (g *GoJudge) authorize(req *http.Request) {
+	if g.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+g.AuthToken)
+	}
 }
 
 type runRequest struct {

@@ -60,6 +60,19 @@ func TestLoadAcceptsHTTPS(t *testing.T) {
 	}
 }
 
+func TestLoadReadsGoJudgeToken(t *testing.T) {
+	setRequiredEnv(t, "https://judgeloom.example.com/api/v1")
+	t.Setenv("GO_JUDGE_TOKEN", "sandbox-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.GoJudgeToken != "sandbox-secret" {
+		t.Fatalf("unexpected go-judge token: %q", cfg.GoJudgeToken)
+	}
+}
+
 func TestLoadRejectsNonAbsoluteURL(t *testing.T) {
 	setRequiredEnv(t, "control-plane:8000/api/v1")
 

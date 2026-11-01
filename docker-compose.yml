@@ -142,10 +142,20 @@ services:
     restart: unless-stopped
     privileged: true
     shm_size: 256m
+    read_only: true
+    tmpfs:
+      - /tmp:rw,exec,size=256m
+    # -no-fallback refuses to degrade to an unisolated runner when cgroups fail.
+    command:
+      - -no-fallback
+      - -http-addr=:5050
+      - -auth-token=${GO_JUDGE_AUTH_TOKEN:-dev-judge-token}
     ports:
       - "127.0.0.1:5050:5050"
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
+    networks:
+      - judge_net
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:5050/version >/dev/null || exit 1"]
       interval: 10s
@@ -164,12 +174,16 @@ services:
       JUDGELOOM_JUDGE_TOKEN: ${JUDGELOOM_JUDGE_TOKEN:-change-me}
       JUDGELOOM_JUDGE_NAME: ${JUDGELOOM_JUDGE_NAME:-judge-worker-1}
       GO_JUDGE_URL: http://go-judge:5050
+      GO_JUDGE_TOKEN: ${GO_JUDGE_AUTH_TOKEN:-dev-judge-token}
       WORKER_LANGUAGES: ${WORKER_LANGUAGES:-PY3,CPP17}
       WORKER_CACHE_DIR: /var/lib/judgeloom-worker
       WORKER_POLL_INTERVAL: 2s
       WORKER_HEARTBEAT: 10s
     volumes:
       - worker_cache:/var/lib/judgeloom-worker
+    networks:
+      - default
+      - judge_net
     depends_on:
       web:
         condition: service_started
@@ -187,3 +201,8 @@ volumes:
     driver: local
   worker_cache:
     driver: local
+
+networks:
+  # Dedicated sandbox network; the production overlay marks it internal.
+  judge_net:
+    driver: bridge

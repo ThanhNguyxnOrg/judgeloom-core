@@ -14,6 +14,7 @@ type Config struct {
 	JudgeToken        string
 	JudgeName         string
 	GoJudgeURL        string
+	GoJudgeToken      string
 	Languages         []string
 	PollInterval      time.Duration
 	Heartbeat         time.Duration
@@ -28,6 +29,7 @@ func Load() (Config, error) {
 		JudgeToken:        os.Getenv("JUDGELOOM_JUDGE_TOKEN"),
 		JudgeName:         os.Getenv("JUDGELOOM_JUDGE_NAME"),
 		GoJudgeURL:        envOr("GO_JUDGE_URL", "http://localhost:5050"),
+		GoJudgeToken:      os.Getenv("GO_JUDGE_TOKEN"),
 		Languages:         languagesEnv("WORKER_LANGUAGES", "PY3,CPP17"),
 		PollInterval:      durationEnv("WORKER_POLL_INTERVAL", 2*time.Second),
 		Heartbeat:         durationEnv("WORKER_HEARTBEAT", 10*time.Second),

@@ -23,6 +23,7 @@ func TestSandboxPythonAndCpp(t *testing.T) {
 	judge := &executor.GoJudge{
 		BaseURL:    baseURL,
 		Client:     &http.Client{Timeout: 30 * time.Second},
+		AuthToken:  os.Getenv("GO_JUDGE_TOKEN"),
 		RetryDelay: 100 * time.Millisecond,
 	}
 	runnerInstance := &runner.Runner{Judge: judge}

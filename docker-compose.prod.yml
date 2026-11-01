@@ -129,10 +129,25 @@ services:
           cpus: "2.0"
           memory: 2G
 
+  go-judge:
+    restart: always
+    # The sandbox is reachable only from the judge-worker over judge_net.
+    ports: !override []
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4G
+          pids: 4096
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
   judge-worker:
     environment:
       JUDGELOOM_API_URL: ${JUDGELOOM_API_URL:?set an HTTPS control-plane URL}
       WORKER_ALLOW_INSECURE_HTTP: "false"
+      GO_JUDGE_TOKEN: ${GO_JUDGE_AUTH_TOKEN:?set GO_JUDGE_AUTH_TOKEN}
 
   redis:
     restart: always
@@ -150,3 +165,8 @@ volumes:
     driver: local
   media_files:
     driver: local
+
+networks:
+  judge_net:
+    # No egress for the sandbox; only the judge worker shares this network.
+    internal: true
