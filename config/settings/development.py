@@ -9,7 +9,7 @@ verbose SQL logging, Django Debug Toolbar, and console email.
 from __future__ import annotations
 
 from .base import *  # noqa: F403
-from .base import INSTALLED_APPS, MIDDLEWARE
+from .base import INSTALLED_APPS, MIDDLEWARE, env
 
 # ─── Core ───────────────────────────────────────────────────────────────────
 
@@ -41,13 +41,16 @@ DEBUG_TOOLBAR_CONFIG = {
 
 # ─── Database ──────────────────────────────────────────────────────────────
 
-# Use SQLite for quick local dev if DATABASE_URL is not set
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
-    },
-}
+# Use SQLite for quick local dev only when DATABASE_URL is not configured.
+if env("DATABASE_URL", default=""):
+    DATABASES = {"default": env.db("DATABASE_URL")}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",  # noqa: F405
+        },
+    }
 
 
 # ─── Cache ─────────────────────────────────────────────────────────────────
