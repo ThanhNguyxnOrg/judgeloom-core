@@ -38,12 +38,15 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-dev-redis-password}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-dev-redis-password}"]
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -59,9 +62,9 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CHANNEL_LAYERS_URL: redis://redis:6379/2
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
+      CHANNEL_LAYERS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/2
     ports:
       - "8000:8000"
     volumes:
@@ -85,9 +88,9 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CHANNEL_LAYERS_URL: redis://redis:6379/2
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
+      CHANNEL_LAYERS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/2
     volumes:
       - .:/app
     depends_on:
@@ -106,9 +109,9 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
       DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CHANNEL_LAYERS_URL: redis://redis:6379/2
+      REDIS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
+      CHANNEL_LAYERS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/2
     volumes:
       - .:/app
     depends_on:
@@ -127,13 +130,13 @@ services:
     env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
-      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
     ports:
       - "5555:5555"
     depends_on:
       redis:
         condition: service_healthy
-    command: celery -A config flower --port=5555 --broker=redis://redis:6379/1
+    command: celery -A config flower --port=5555 --broker=redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
 
   go-judge:
     build:

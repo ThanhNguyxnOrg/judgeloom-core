@@ -25,6 +25,12 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
       DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
+      CHANNEL_LAYERS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/2
+    # Only a local reverse proxy should reach Django over plaintext HTTP.
+    ports: !override
+      - "127.0.0.1:8000:8000"
     # !override replaces the base `.:/app` bind mount; a plain list would merge it back in.
     volumes: !override
       - static_files:/var/judgeloom/static
@@ -61,6 +67,9 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
       DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
+      CHANNEL_LAYERS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/2
     volumes: !override []
     command: celery -A config worker --loglevel=info --concurrency=4
     deploy:
@@ -81,6 +90,9 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
       DATABASE_URL: postgres://${POSTGRES_USER:-judgeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-judgeloom}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/0
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
+      CHANNEL_LAYERS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/2
     volumes: !override []
     command: celery -A config beat --loglevel=info
     deploy:
@@ -100,12 +112,14 @@ services:
     restart: always
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
     # Flower basic auth credentials should come from env; set FLOWER_BASIC_AUTH
     # in your .env or secret manager as "user:password".
     command: >
       celery -A config flower
       --port=5555
       --basic_auth=${FLOWER_BASIC_AUTH:?set FLOWER_BASIC_AUTH}
+      --broker=redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379/1
     ports: !override
       - "127.0.0.1:5555:5555"
     deploy:
@@ -151,6 +165,9 @@ services:
 
   redis:
     restart: always
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD}"]
     ports: !override []
     deploy:
       resources:
