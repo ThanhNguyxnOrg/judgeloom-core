@@ -165,6 +165,38 @@ class TestPackageImportService:
         with pytest.raises(ValidationError, match="unknown groups"):
             PackageImportService.import_zip(problem, upload)
 
+    def test_import_zip_rejects_interactive_checker_without_source(self, problem):
+        manifest = {
+            "checker": {"type": "interactive"},
+            "cases": [{"input": "data/01.in", "answer": "data/01.ans"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="requires inline source"):
+            PackageImportService.import_zip(problem, upload)
+
+    def test_import_zip_rejects_unknown_checker_type(self, problem):
+        manifest = {
+            "checker": {"type": "mystery"},
+            "cases": [{"input": "data/01.in", "answer": "data/01.ans"}],
+        }
+        upload = make_zip(
+            {
+                "manifest.json": json.dumps(manifest).encode(),
+                "data/01.in": b"1 2\n",
+                "data/01.ans": b"3\n",
+            }
+        )
+
+        with pytest.raises(ValidationError, match="checker type"):
+            PackageImportService.import_zip(problem, upload)
+
     def test_import_zip_accepts_inline_testlib_validator(self, problem):
         manifest = {
             "validator": {"type": "testlib", "source": "int main() { return 0; }"},
@@ -295,7 +327,7 @@ class TestPackageImportService:
 
 @pytest.mark.django_db
 def test_problem_types_reads_active_package_interactive_flag(problem):
-    manifest = {"checker": {"type": "interactive"}, "cases": []}
+    manifest = {"checker": {"type": "interactive", "source": "int main() { return 0; }"}, "cases": []}
     upload = make_zip(
         {
             "manifest.json": json.dumps(manifest).encode(),

@@ -52,11 +52,12 @@ func (c *TestlibChecker) Check(
 
 	compiled, err := c.Judge.Run(ctx, executor.RunSpec{
 		Args:          []string{"g++", "-O2", "-std=c++17", "-o", "checker", "checker.cpp"},
+		Env:           []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8"},
 		CopyIn:        map[string][]byte{"checker.cpp": []byte(spec.Source)},
 		CopyOutCached: []string{"checker"},
 		CPUTime:       10 * time.Second,
 		ClockTime:     20 * time.Second,
-		MemoryBytes:   memoryLimit,
+		MemoryBytes:   compileMemoryLimit(memoryLimit),
 		ProcLimit:     64,
 	})
 	if err != nil {
@@ -102,6 +103,14 @@ func (c *TestlibChecker) Check(
 	default:
 		return Result{Status: "IE", Message: checkerMessage(ran)}, nil
 	}
+}
+
+func compileMemoryLimit(memoryLimit int64) int64 {
+	const minimum = 256 << 20
+	if memoryLimit < minimum {
+		return minimum
+	}
+	return memoryLimit
 }
 
 func normalize(data []byte) string {

@@ -51,6 +51,23 @@ type VersionInfo struct {
 	Platform     string `json:"platform"`
 }
 
+type InteractiveResult struct {
+	Participant RunResult
+	Interactor  RunResult
+}
+
+type pipeIndex struct {
+	Index int `json:"index"`
+	FD    int `json:"fd"`
+}
+
+type pipeMap struct {
+	In    pipeIndex `json:"in"`
+	Out   pipeIndex `json:"out"`
+	Proxy bool      `json:"proxy,omitempty"`
+	Name  string    `json:"name,omitempty"`
+}
+
 func (g *GoJudge) Version(ctx context.Context) (VersionInfo, error) {
 	httpClient := g.Client
 	if httpClient == nil {
@@ -83,15 +100,55 @@ func (g *GoJudge) Version(ctx context.Context) (VersionInfo, error) {
 }
 
 func (g *GoJudge) Run(ctx context.Context, spec RunSpec) (RunResult, error) {
+	request := runRequest{
+		RequestID: requestID(),
+		Cmd:       []cmdSpec{runCommand(spec, []*cmdFile{filePtr(memoryInput(spec.StdIn)), filePtr(pipeOutput("stdout")), filePtr(pipeOutput("stderr"))})},
+	}
+	results, err := g.doRunWithRetry(ctx, request)
+	if err != nil {
+		return RunResult{Status: "IE", Error: err.Error()}, nil
+	}
+	if len(results) == 0 {
+		return RunResult{Status: "IE", Error: "go-judge returned no results"}, nil
+	}
+	return toRunResult(results[0], "stdout", "stderr"), nil
+}
+
+func (g *GoJudge) RunInteractive(ctx context.Context, participant, interactor RunSpec) (InteractiveResult, error) {
+	request := runRequest{
+		RequestID: requestID(),
+		Cmd: []cmdSpec{
+			runCommand(interactor, []*cmdFile{nil, nil, filePtr(pipeOutput("interactor_stderr"))}),
+			runCommand(participant, []*cmdFile{nil, nil, filePtr(pipeOutput("participant_stderr"))}),
+		},
+		PipeMapping: []pipeMap{
+			{In: pipeIndex{Index: 0, FD: 1}, Out: pipeIndex{Index: 1, FD: 0}},
+			{In: pipeIndex{Index: 1, FD: 1}, Out: pipeIndex{Index: 0, FD: 0}},
+		},
+	}
+	results, err := g.doRunWithRetry(ctx, request)
+	if err != nil {
+		return InteractiveResult{}, err
+	}
+	if len(results) < 2 {
+		return InteractiveResult{}, errors.New("go-judge returned fewer than two interactive results")
+	}
+	return InteractiveResult{
+		Interactor:  toRunResult(results[0], "stdout", "interactor_stderr"),
+		Participant: toRunResult(results[1], "stdout", "participant_stderr"),
+	}, nil
+}
+
+func (g *GoJudge) doRunWithRetry(ctx context.Context, request runRequest) ([]runResult, error) {
 	delay := g.RetryDelay
 	if delay <= 0 {
 		delay = time.Second
 	}
 	var lastErr error
 	for attempt := 0; attempt < 2; attempt++ {
-		result, err := g.runOnce(ctx, spec)
+		results, err := g.doRun(ctx, request)
 		if err == nil {
-			return result, nil
+			return results, nil
 		}
 		lastErr = err
 		if attempt == 0 {
@@ -99,32 +156,18 @@ func (g *GoJudge) Run(ctx context.Context, spec RunSpec) (RunResult, error) {
 			select {
 			case <-ctx.Done():
 				timer.Stop()
-				return RunResult{Status: "IE", Error: ctx.Err().Error()}, nil
+				return nil, ctx.Err()
 			case <-timer.C:
 			}
 		}
 	}
-	return RunResult{Status: "IE", Error: lastErr.Error()}, nil
+	return nil, lastErr
 }
 
-func (g *GoJudge) runOnce(ctx context.Context, spec RunSpec) (RunResult, error) {
-	request := runRequest{
-		RequestID: requestID(),
-		Cmd: []cmdSpec{{
-			Args:          spec.Args,
-			Env:           spec.Env,
-			Files:         []cmdFile{memoryInput(spec.StdIn), pipeOutput("stdout"), pipeOutput("stderr")},
-			CPULimit:      uint64(maxDuration(spec.CPUTime, 0)),
-			ClockLimit:    uint64(maxDuration(spec.ClockTime, spec.CPUTime*2)),
-			MemoryLimit:   uint64(maxInt64(spec.MemoryBytes, 0)),
-			ProcLimit:     uint64(maxInt(spec.ProcLimit, 1)),
-			CopyIn:        copyInFiles(spec.CopyIn, spec.CopyInCached),
-			CopyOutCached: spec.CopyOutCached,
-		}},
-	}
+func (g *GoJudge) doRun(ctx context.Context, request runRequest) ([]runResult, error) {
 	payload, err := json.Marshal(request)
 	if err != nil {
-		return RunResult{}, err
+		return nil, err
 	}
 
 	url := strings.TrimRight(g.BaseURL, "/") + "/run"
@@ -134,51 +177,70 @@ func (g *GoJudge) runOnce(ctx context.Context, spec RunSpec) (RunResult, error) 
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		return RunResult{}, err
+		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return RunResult{}, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return RunResult{}, err
+		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return RunResult{}, fmt.Errorf("go-judge %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("go-judge %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var results []runResult
 	if err := json.Unmarshal(body, &results); err != nil {
-		return RunResult{}, err
+		return nil, err
 	}
-	if len(results) == 0 {
-		return RunResult{Status: "IE", Error: "go-judge returned no results"}, nil
+	return results, nil
+}
+
+func runCommand(spec RunSpec, files []*cmdFile) cmdSpec {
+	return cmdSpec{
+		Args:          spec.Args,
+		Env:           spec.Env,
+		Files:         files,
+		CPULimit:      uint64(maxDuration(spec.CPUTime, 0)),
+		ClockLimit:    uint64(maxDuration(spec.ClockTime, spec.CPUTime*2)),
+		MemoryLimit:   uint64(maxInt64(spec.MemoryBytes, 0)),
+		ProcLimit:     uint64(maxInt(spec.ProcLimit, 1)),
+		CopyIn:        copyInFiles(spec.CopyIn, spec.CopyInCached),
+		CopyOutCached: spec.CopyOutCached,
 	}
-	result := results[0]
+}
+
+func toRunResult(result runResult, stdoutKey, stderrKey string) RunResult {
 	return RunResult{
 		Status:     normalizeStatus(result.Status),
 		ExitStatus: result.ExitStatus,
 		Time:       time.Duration(result.Time),
 		Memory:     int64(result.Memory),
-		Stdout:     []byte(result.Files["stdout"]),
-		Stderr:     []byte(result.Files["stderr"]),
+		Stdout:     []byte(result.Files[stdoutKey]),
+		Stderr:     []byte(result.Files[stderrKey]),
 		FileIDs:    result.FileIDs,
 		Error:      result.Error,
-	}, nil
+	}
+}
+
+func filePtr(file cmdFile) *cmdFile {
+	return &file
 }
 
 type runRequest struct {
-	RequestID string    `json:"requestId"`
-	Cmd       []cmdSpec `json:"cmd"`
+	RequestID   string    `json:"requestId"`
+	Cmd         []cmdSpec `json:"cmd"`
+	PipeMapping []pipeMap `json:"pipeMapping,omitempty"`
 }
 
 type cmdSpec struct {
 	Args          []string           `json:"args"`
 	Env           []string           `json:"env,omitempty"`
-	Files         []cmdFile          `json:"files,omitempty"`
+	Files         []*cmdFile         `json:"files,omitempty"`
 	CPULimit      uint64             `json:"cpuLimit,omitempty"`
 	ClockLimit    uint64             `json:"clockLimit,omitempty"`
 	MemoryLimit   uint64             `json:"memoryLimit,omitempty"`

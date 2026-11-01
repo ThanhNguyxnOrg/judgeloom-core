@@ -28,30 +28,23 @@ type Runner struct {
 	Judge *executor.GoJudge
 }
 
-func (r *Runner) CompileAndRun(
+func (r *Runner) Prepare(
 	ctx context.Context,
 	languageKey string,
 	source string,
-	input []byte,
-	timeLimit time.Duration,
 	memoryLimit int64,
-) (executor.RunResult, error) {
+) (executor.RunSpec, error) {
 	profile, ok := language.Get(languageKey)
 	if !ok {
-		return executor.RunResult{}, ErrUnsupportedLanguage
+		return executor.RunSpec{}, ErrUnsupportedLanguage
 	}
 	if r.Judge == nil {
-		return executor.RunResult{}, errors.New("go-judge executor is not configured")
+		return executor.RunSpec{}, errors.New("go-judge executor is not configured")
 	}
 
 	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8"}
 	runSpec := profile.Run
 	runSpec.Env = env
-	runSpec.StdIn = input
-	runSpec.CPUTime = timeLimit
-	runSpec.ClockTime = 2 * timeLimit
-	runSpec.MemoryBytes = memoryLimit
-	runSpec.ProcLimit = 64
 
 	if profile.Compile != nil {
 		compileSpec := *profile.Compile
@@ -63,23 +56,42 @@ func (r *Runner) CompileAndRun(
 		compileSpec.ProcLimit = 64
 		compiled, err := r.Judge.Run(ctx, compileSpec)
 		if err != nil {
-			return executor.RunResult{}, err
+			return executor.RunSpec{}, err
 		}
 		if compiled.Status != "AC" {
 			message := strings.TrimSpace(string(compiled.Stderr))
 			if message == "" {
 				message = fmt.Sprintf("compiler status %s", compiled.Status)
 			}
-			return executor.RunResult{}, &CompileError{Message: message}
+			return executor.RunSpec{}, &CompileError{Message: message}
 		}
 		fileID := compiled.FileIDs["main"]
 		if fileID == "" {
-			return executor.RunResult{}, &CompileError{Message: "compiler did not produce a binary"}
+			return executor.RunSpec{}, &CompileError{Message: "compiler did not produce a binary"}
 		}
 		runSpec.CopyInCached = map[string]string{"main": fileID}
 	} else {
 		runSpec.CopyIn = map[string][]byte{profile.SourceName: []byte(source)}
 	}
+	return runSpec, nil
+}
 
+func (r *Runner) CompileAndRun(
+	ctx context.Context,
+	languageKey string,
+	source string,
+	input []byte,
+	timeLimit time.Duration,
+	memoryLimit int64,
+) (executor.RunResult, error) {
+	runSpec, err := r.Prepare(ctx, languageKey, source, memoryLimit)
+	if err != nil {
+		return executor.RunResult{}, err
+	}
+	runSpec.StdIn = input
+	runSpec.CPUTime = timeLimit
+	runSpec.ClockTime = 2 * timeLimit
+	runSpec.MemoryBytes = memoryLimit
+	runSpec.ProcLimit = 64
 	return r.Judge.Run(ctx, runSpec)
 }

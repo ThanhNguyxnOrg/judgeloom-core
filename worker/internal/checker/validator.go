@@ -29,11 +29,12 @@ func NewTestlibValidator(
 
 	compiled, err := judge.Run(ctx, executor.RunSpec{
 		Args:          []string{"g++", "-O2", "-std=c++17", "-o", "validator", "validator.cpp"},
+		Env:           []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8"},
 		CopyIn:        map[string][]byte{"validator.cpp": []byte(spec.Source)},
 		CopyOutCached: []string{"validator"},
 		CPUTime:       10 * time.Second,
 		ClockTime:     20 * time.Second,
-		MemoryBytes:   memoryLimit,
+		MemoryBytes:   compileMemoryLimit(memoryLimit),
 		ProcLimit:     64,
 	})
 	if err != nil {

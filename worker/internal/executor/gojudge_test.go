@@ -106,6 +106,49 @@ func TestGoJudgeRunRequestShapeAndResponse(t *testing.T) {
 	}
 }
 
+func TestGoJudgeRunInteractiveRequestShape(t *testing.T) {
+	var requestBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			t.Fatal(err)
+		}
+		_ = json.NewEncoder(w).Encode([]map[string]any{
+			{"status": "Accepted", "exitStatus": 0},
+			{"status": "Accepted", "exitStatus": 0},
+		})
+	}))
+	defer server.Close()
+
+	judge := &GoJudge{BaseURL: server.URL, Client: server.Client()}
+	result, err := judge.RunInteractive(
+		context.Background(),
+		RunSpec{Args: []string{"python3", "main.py"}, CopyIn: map[string][]byte{"main.py": []byte("print(1)")}},
+		RunSpec{Args: []string{"/w/interactor", "/w/input.txt"}, CopyIn: map[string][]byte{"input.txt": []byte("1 2\n")}},
+	)
+	if err != nil {
+		t.Fatalf("RunInteractive: %v", err)
+	}
+	if result.Interactor.Status != "AC" || result.Participant.Status != "AC" {
+		t.Fatalf("unexpected interactive result: %+v", result)
+	}
+
+	commands := requestBody["cmd"].([]any)
+	if len(commands) != 2 {
+		t.Fatalf("expected two commands, got %d", len(commands))
+	}
+	participantFiles := commands[1].(map[string]any)["files"].([]any)
+	if len(participantFiles) != 3 || participantFiles[0] != nil || participantFiles[1] != nil {
+		t.Fatalf("unexpected participant files: %+v", participantFiles)
+	}
+	if participantFiles[2].(map[string]any)["name"] != "participant_stderr" {
+		t.Fatalf("unexpected participant stderr collector: %+v", participantFiles[2])
+	}
+	pipes := requestBody["pipeMapping"].([]any)
+	if len(pipes) != 2 {
+		t.Fatalf("expected two pipe mappings, got %d", len(pipes))
+	}
+}
+
 func TestGoJudgeMapsStatuses(t *testing.T) {
 	tests := []struct {
 		name   string

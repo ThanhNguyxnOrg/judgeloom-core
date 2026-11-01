@@ -65,6 +65,7 @@ class PackageImportService:
                 if sum(info.file_size for info in zf.infolist()) > MAX_UNCOMPRESSED_BYTES:
                     raise ValidationError(f"Archive exceeds maximum uncompressed size ({MAX_UNCOMPRESSED_BYTES} bytes).")
                 manifest = PackageImportService._read_manifest(zf, file_names)
+                PackageImportService._validate_checker(manifest)
                 PackageImportService._validate_validator(manifest)
                 cases = PackageImportService._manifest_cases(zf, file_names, manifest, problem)
                 if cases is None:
@@ -150,6 +151,27 @@ class PackageImportService:
         if not isinstance(manifest, dict):
             raise ValidationError("manifest.json must be an object.")
         return manifest
+
+    @staticmethod
+    def _validate_checker(manifest: dict[str, Any]) -> None:
+        """Validate optional inline checker metadata."""
+
+        checker = manifest.get("checker")
+        if checker is None:
+            return
+        if not isinstance(checker, dict):
+            raise ValidationError("manifest checker must be an object.")
+
+        checker_type = str(checker.get("type", "exact")).lower()
+        if checker_type not in {"exact", "testlib", "interactive", "none"}:
+            raise ValidationError(f"Unsupported manifest checker type: {checker_type}")
+
+        if checker_type in {"testlib", "interactive"}:
+            source = checker.get("source")
+            if not isinstance(source, str) or not source.strip():
+                raise ValidationError(f"A {checker_type} checker requires inline source.")
+            if len(source.encode("utf-8")) > MAX_VALIDATOR_SOURCE_BYTES:
+                raise ValidationError("Checker source exceeds the maximum allowed size.")
 
     @staticmethod
     def _validate_validator(manifest: dict[str, Any]) -> None:

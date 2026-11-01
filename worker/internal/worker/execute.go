@@ -136,6 +136,10 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 		}
 	}
 
+	if checkerSpec.Type == "interactive" {
+		return e.executeInteractive(ctx, dir, job, cases, checkerSpec, inputValidator, timeLimit, memoryBytes)
+	}
+
 	results := make([]api.CaseResult, 0, len(cases))
 	for index, testCase := range cases {
 		input, err := readPackageFile(dir, testCase.Input)
@@ -191,6 +195,60 @@ func (e *JobExecutor) Execute(ctx context.Context, job *api.Job) ([]api.CaseResu
 		result.Status = checked.Status
 		result.Feedback = checked.Message
 		result.Output = truncate(run.Stdout, 4096)
+		if checked.Status == "AC" {
+			result.Points = testCase.Points
+		} else if checked.Status == "PT" {
+			result.Points = min(checked.Points, testCase.Points)
+		}
+		results = append(results, result)
+		if job.ShortCircuit && checked.Status != "AC" {
+			break
+		}
+	}
+	return results, nil
+}
+
+func (e *JobExecutor) executeInteractive(
+	ctx context.Context,
+	dir string,
+	job *api.Job,
+	cases []packageCase,
+	spec api.Checker,
+	inputValidator *checker.TestlibValidator,
+	timeLimit time.Duration,
+	memoryBytes int64,
+) ([]api.CaseResult, error) {
+	interactive := &checker.InteractiveChecker{Judge: e.Judge, Runner: e.Runner}
+	results := make([]api.CaseResult, 0, len(cases))
+
+	for index, testCase := range cases {
+		input, err := readPackageFile(dir, testCase.Input)
+		if err != nil {
+			return nil, err
+		}
+		if err := verifyFileHash(input, testCase.InputSHA256); err != nil {
+			return nil, err
+		}
+		if inputValidator != nil {
+			validated, err := inputValidator.Validate(ctx, input, timeLimit, memoryBytes)
+			if err != nil {
+				return nil, err
+			}
+			if validated.Status != "AC" {
+				return nil, fmt.Errorf("test data validator rejected %s: %s", testCase.Input, validated.Message)
+			}
+		}
+
+		checked, err := interactive.Check(ctx, spec, job.Language, job.Source, input, timeLimit, memoryBytes)
+		if err != nil {
+			return nil, err
+		}
+		result := api.CaseResult{
+			CaseNumber:  index + 1,
+			Status:      checked.Status,
+			TotalPoints: testCase.Points,
+			Feedback:    checked.Message,
+		}
 		if checked.Status == "AC" {
 			result.Points = testCase.Points
 		} else if checked.Status == "PT" {
