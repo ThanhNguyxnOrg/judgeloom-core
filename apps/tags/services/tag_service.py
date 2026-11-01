@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, QuerySet
+from django.db.models import Count, Q, QuerySet
 from django.utils.text import slugify
 
 from apps.problems.services import ProblemService
@@ -69,10 +69,14 @@ class TagService:
             problem.tags.remove(*tags)
 
     @staticmethod
-    def get_popular_tags(limit: int = 20) -> QuerySet[Tag]:
-        """Return tags ordered by number of linked problems."""
+    def get_popular_tags(limit: int = 20, user: object | None = None) -> QuerySet[Tag]:
+        """Return tags ordered by the number of problems visible to the caller."""
 
-        return Tag.objects.annotate(problem_total=Count("problems")).order_by("-problem_total", "name")[:limit]
+        visible_problems = ProblemService.get_visible_problems(user)
+        return (
+            Tag.objects.annotate(problem_total=Count("problems", filter=Q(problems__in=visible_problems)))
+            .order_by("-problem_total", "name")[:limit]
+        )
 
     @staticmethod
     def get_problems_by_tag(tag_code: str, user: object) -> QuerySet[Problem]:
