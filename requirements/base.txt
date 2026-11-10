@@ -18,7 +18,10 @@ psycopg[binary]>=3.3.8,<4.0
 
 # ─── Async & Task Queue ───────────────────────────────────────────────────
 celery[redis]>=5.7.0,<6.0
-django-celery-beat>=2.9.0,<3.0
+# django-celery-beat 2.9.0 on PyPI still declares Django<6.1, blocking our Django 6.1 baseline.
+# Upstream main removed that obsolete cap and tests against Django 6.1; pin an exact commit
+# until the compatible upstream release is published.
+django-celery-beat @ git+https://github.com/celery/django-celery-beat.git@def82833b31336ef16dc529900be8bc2f357c4d1
 
 # ─── Real-time ─────────────────────────────────────────────────────────────
 channels>=4.3.2,<5.0
