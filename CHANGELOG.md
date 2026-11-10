@@ -27,3 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [Unreleased]: https://github.com/ThanhNguyxnOrg/judgeloom-core/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/ThanhNguyxnOrg/judgeloom-core/releases/tag/v0.1.0
+
+## [0.1.1] - 2026-11-10
+
+### Bug Fixes and Performance
+
+- constrain python-dateutil to Celery-compatible 2.x ([44e8bc8](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/44e8bc81dd239e717aa81d9cb7efc86814d3ba3b))
+- use Django 6.1-compatible celery-beat source revision ([d4fb46a](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/d4fb46abf137eeceabbae342a6cf85a7f07a104e))
+
