@@ -99,6 +99,9 @@ services:
       redis:
         condition: service_healthy
     command: celery -A config worker --loglevel=info --concurrency=4
+    healthcheck:
+      test: ["CMD-SHELL", 'celery inspect ping --timeout 5 --destination "celery@$$HOSTNAME"']
+      timeout: 10s
 
   celery_beat:
     build:
@@ -108,6 +111,8 @@ services:
     env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
+      # Celery 5.7's beat ping only replies while the scheduler is ticking.
+      CELERY_BEAT_REMOTE_CONTROL: "true"
       DATABASE_URL: postgres://judgeloom:judgeloom@postgres:5432/judgeloom
       REDIS_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/0
       CELERY_BROKER_URL: redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
@@ -121,6 +126,9 @@ services:
         condition: service_healthy
     # --scheduler is already configured via CELERY_BEAT_SCHEDULER in Django settings
     command: celery -A config beat --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", 'celery inspect ping --timeout 5 --destination "celerybeat@$$HOSTNAME"']
+      timeout: 10s
 
   flower:
     build:
@@ -137,6 +145,9 @@ services:
       redis:
         condition: service_healthy
     command: celery -A config flower --port=5555 --broker=redis://:${REDIS_PASSWORD:-dev-redis-password}@redis:6379/1
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5555/healthcheck"]
+      timeout: 10s
 
   go-judge:
     build:
