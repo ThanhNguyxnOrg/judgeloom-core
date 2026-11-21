@@ -39,7 +39,7 @@ class SubmissionConsumer(AsyncJsonWebsocketConsumer):
         submission = Submission.objects.select_related("problem").filter(pk=submission_id).first()
         if submission is None:
             return False
-        return SubmissionService.can_view_submission(user=user, submission=submission)
+        return SubmissionService.can_view_submission_private(user=user, submission=submission)
 
     async def disconnect(self, close_code: int) -> None:
         """Remove client from the submission group.

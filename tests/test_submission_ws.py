@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import zipfile
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import pytest
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.judge.services.judge_gateway_service import JudgeGatewayService
@@ -15,6 +17,13 @@ from apps.problems.services.package_service import PackageImportService
 from apps.submissions.constants import SubmissionResult
 from apps.submissions.consumers import SubmissionConsumer
 from apps.submissions.services import SubmissionService
+from config.asgi import application
+from tests.factories import UserFactory
+
+if TYPE_CHECKING:
+    from django.test import Client
+
+    from apps.submissions.models import Submission
 
 
 def make_zip(entries: dict[str, bytes], name: str = "package.zip") -> SimpleUploadedFile:
@@ -77,6 +86,23 @@ async def test_submission_consumer_receives_case_update(user, problem, language,
     assert payload["cases"][0]["case_number"] == 1
     assert payload["case_total"] == 1
     assert payload["case_passed"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_public_submission_feed_still_requires_private_access(submission: Submission, client: Client) -> None:
+    await database_sync_to_async(SubmissionService.set_submission_public)(submission, True)
+    await client.aforce_login(await database_sync_to_async(UserFactory)())
+    session_cookie = client.cookies[settings.SESSION_COOKIE_NAME].OutputString(attrs=[])
+    communicator = WebsocketCommunicator(
+        application,
+        f"/ws/submissions/{submission.pk}/",
+        headers=[(b"origin", b"https://testserver"), (b"cookie", session_cookie.encode())],
+    )
+    try:
+        assert await communicator.connect() == (False, 4403)
+    finally:
+        await communicator.disconnect()
 
 
 @pytest.mark.asyncio

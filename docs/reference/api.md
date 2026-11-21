@@ -131,7 +131,8 @@ includes source code or test output.
 
 ## 📡 WebSocket updates
 
-- `/ws/submissions/<submission_id>/` requires a signed-in user with access to the submission.
+- `/ws/submissions/<submission_id>/` streams private case details to the owner, staff, or problem maintainers.
+  Public submission metadata does not grant access to this feed.
 - `/ws/contests/<contest_key>/` follows contest visibility; public contests allow anonymous readers.
 
 Connect over `wss://` in production. Channels reads the Django session cookie
