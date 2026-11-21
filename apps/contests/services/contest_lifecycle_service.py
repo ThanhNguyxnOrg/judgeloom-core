@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 
 from django.db import transaction
 from django.utils import timezone
@@ -12,6 +13,11 @@ from core.cache import invalidate_pattern
 from core.events import CONTEST_ENDED, CONTEST_RANKING_UPDATED, CONTEST_STARTED, Event, publish_sync
 
 logger = logging.getLogger(__name__)
+
+
+def _publish_contest_event(contest: Contest, event_type: str) -> None:
+    event = Event(type=event_type, payload={"contest_id": contest.pk, "contest_key": contest.key})
+    transaction.on_commit(partial(publish_sync, event, group=contest.websocket_group))
 
 
 class ContestLifecycleService:
@@ -33,12 +39,7 @@ class ContestLifecycleService:
         RankingService.recalculate_contest(contest)
         invalidate_pattern("jl:contest:list")
         invalidate_pattern(f"jl:contest:{contest.id}")
-        publish_sync(
-            Event(
-                type=CONTEST_RANKING_UPDATED,
-                payload={"contest_id": contest.id, "contest_key": contest.key},
-            )
-        )
+        _publish_contest_event(contest, CONTEST_RANKING_UPDATED)
 
     @staticmethod
     @transaction.atomic
@@ -57,12 +58,7 @@ class ContestLifecycleService:
         contest.save(update_fields=["started_at", "updated_at"])
         invalidate_pattern("jl:contest:list")
         invalidate_pattern(f"jl:contest:{contest.id}")
-        publish_sync(
-            Event(
-                type=CONTEST_STARTED,
-                payload={"contest_id": contest.id, "contest_key": contest.key},
-            )
-        )
+        _publish_contest_event(contest, CONTEST_STARTED)
 
     @staticmethod
     @transaction.atomic
@@ -85,12 +81,7 @@ class ContestLifecycleService:
 
         invalidate_pattern("jl:contest:list")
         invalidate_pattern(f"jl:contest:{contest.id}")
-        publish_sync(
-            Event(
-                type=CONTEST_ENDED,
-                payload={"contest_id": contest.id, "contest_key": contest.key},
-            )
-        )
+        _publish_contest_event(contest, CONTEST_ENDED)
 
     @staticmethod
     def tick_contests() -> dict[str, int]:

@@ -13,24 +13,15 @@ from core.events import CONTEST_ENDED, CONTEST_RANKING_UPDATED, CONTEST_STARTED
 class ContestConsumer(AsyncJsonWebsocketConsumer):
     """Streams live contest updates (ranking and lifecycle events) to clients."""
 
-    contest_key: str
-    group_name: str
-
     async def connect(self) -> None:
-        """Accept the WebSocket connection and join the contest group.
-
-        The contest key is taken from the URL path and used to subscribe the
-        connection to a channel-layer group named ``contest_{contest_key}``.
-        """
+        """Join the contest's event group only after checking visibility."""
         user = self.scope.get("user")
-        self.contest_key = self.scope["url_route"]["kwargs"]["contest_key"]
-
-        allowed = await self._can_see_contest(user=user, contest_key=self.contest_key)
-        if not allowed:
+        contest_key = self.scope["url_route"]["kwargs"]["contest_key"]
+        self.group_name = await self._visible_group(user=user, contest_key=contest_key)
+        if self.group_name is None:
             await self.close(code=4403)
             return
 
-        self.group_name = f"contest_{self.contest_key}"
         self.user_group_name = None
         if user is not None and getattr(user, "is_authenticated", False):
             self.user_group_name = f"user_{user.pk}"
@@ -40,11 +31,11 @@ class ContestConsumer(AsyncJsonWebsocketConsumer):
         await self.accept()
 
     @database_sync_to_async
-    def _can_see_contest(self, user: Any, contest_key: str) -> bool:
+    def _visible_group(self, user: Any, contest_key: str) -> str | None:
         contest = Contest.objects.filter(key=contest_key).first()
-        if contest is None:
-            return False
-        return ContestService.can_see_contest(user=user, contest=contest)
+        if contest is None or not ContestService.can_see_contest(user=user, contest=contest):
+            return None
+        return contest.websocket_group
 
     async def disconnect(self, close_code: int) -> None:
         """Leave the contest group on WebSocket disconnect.
@@ -93,6 +84,8 @@ class ContestConsumer(AsyncJsonWebsocketConsumer):
         payload.setdefault("type", CONTEST_RANKING_UPDATED)
         await self.send_json(payload)
 
+    contest_ranking_updated = ranking_update
+
     async def contest_event(self, event: dict[str, Any]) -> None:
         """Forward contest lifecycle events to the WebSocket client.
 
@@ -106,8 +99,8 @@ class ContestConsumer(AsyncJsonWebsocketConsumer):
         payload: dict[str, Any] = event.get("payload") or {}
 
         event_type = payload.get("type")
-        if event_type is None and isinstance(event.get("event_type"), str):
-            event_type = event["event_type"]
+        if event_type is None:
+            event_type = event.get("event_type", event["type"])
 
         if event_type is None:
             event_type = "contest.event"
@@ -119,3 +112,6 @@ class ContestConsumer(AsyncJsonWebsocketConsumer):
             payload.setdefault("type", event_type)
 
         await self.send_json(payload)
+
+    contest_started = contest_event
+    contest_ended = contest_event

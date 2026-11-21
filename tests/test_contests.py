@@ -8,13 +8,49 @@ Unit tests for Contest and ContestParticipation models.
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import pytest
+from channels.db import database_sync_to_async
+from channels.testing import WebsocketCommunicator
 from django.utils import timezone
 
 from apps.contests.constants import ContestFormat, ParticipationStatus
 from apps.contests.services.contest_lifecycle_service import ContestLifecycleService
+from config.asgi import application
+from core.events import CONTEST_ENDED, CONTEST_RANKING_UPDATED, CONTEST_STARTED
 from tests.factories import ContestFactory
+
+if TYPE_CHECKING:
+    from apps.contests.models import Contest
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_public_contest_feed_receives_its_own_lifecycle_events(contest: Contest) -> None:
+    feed = WebsocketCommunicator(
+        application,
+        f"/ws/contests/{contest.key}/",
+        headers=[(b"origin", b"https://testserver")],
+    )
+    connected, _ = await feed.connect()
+    assert connected
+    try:
+        other = await database_sync_to_async(ContestFactory)()
+        await database_sync_to_async(ContestLifecycleService.start_contest)(other.pk)
+        for publish, event_type in (
+            (ContestLifecycleService.start_contest, CONTEST_STARTED),
+            (ContestLifecycleService.recalculate_rankings, CONTEST_RANKING_UPDATED),
+            (ContestLifecycleService.end_contest, CONTEST_ENDED),
+        ):
+            await database_sync_to_async(publish)(contest.pk)
+            assert await feed.receive_json_from() == {
+                "type": event_type,
+                "contest_id": contest.pk,
+                "contest_key": contest.key,
+            }
+    finally:
+        await feed.disconnect()
 
 
 @pytest.mark.django_db
