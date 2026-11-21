@@ -7,7 +7,7 @@
 #
 # Key changes versus development:
 #   • Uses the multi-stage production Dockerfile (no source volume mount)
-#   • Gunicorn replaces Django dev server
+#   • Uvicorn serves HTTP and WebSockets
 #   • Static files served from a shared named volume (mount behind nginx)
 #   • Restart policy: always
 #   • Resource limits defined
@@ -36,20 +36,8 @@ services:
     volumes: !override
       - static_files:/var/judgeloom/static
       - media_files:/var/judgeloom/media
-    # Override the dev command — gunicorn is set as CMD in the Dockerfile,
-    # but we make it explicit here for clarity.
-    command:
-      - gunicorn
-      - config.wsgi:application
-      - --bind=0.0.0.0:8000
-      - --workers=4
-      - --worker-class=gthread
-      - --threads=2
-      - --timeout=60
-      - --keep-alive=5
-      - --log-level=info
-      - --access-logfile=-
-      - --error-logfile=-
+    # Drop the development runserver command and use the image's ASGI server.
+    command: !reset null
     deploy:
       resources:
         limits:

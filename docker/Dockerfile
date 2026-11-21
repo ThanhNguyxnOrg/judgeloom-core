@@ -12,6 +12,7 @@ FROM python:3.15-slim AS builder
 # Build-time system deps (compilers, headers for C extensions)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    git \
     libpq-dev \
     libxml2-dev \
     libxslt1-dev \
@@ -89,15 +90,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/')"]
 
-# Gunicorn serves via WSGI for low-latency HTTP; switch to daphne/uvicorn
-# for full async/WebSocket support if needed.
-CMD ["gunicorn", "config.wsgi:application", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--worker-class", "gthread", \
-     "--threads", "2", \
-     "--timeout", "60", \
-     "--keep-alive", "5", \
-     "--log-level", "info", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+# Serve HTTP and Channels WebSockets on the same upstream.
+CMD ["uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8000", \
+     "--workers", "4", "--lifespan", "off", "--no-proxy-headers"]

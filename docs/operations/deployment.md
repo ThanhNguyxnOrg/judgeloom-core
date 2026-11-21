@@ -103,6 +103,12 @@ The production image collects static files into `/var/judgeloom/static`, which
 is mounted from the `static_files` volume. A typical nginx front end:
 
 ```nginx
+# Inside the http context, outside the server blocks:
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
 server {
     listen 443 ssl http2;
     server_name judgeloom.example.com;
@@ -115,6 +121,9 @@ server {
 
     location / {
         proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -132,6 +141,15 @@ server {
 Mount the Compose `static_files` and `media_files` volumes at the nginx paths
 you choose. nginx must overwrite `X-Forwarded-Proto`; production trusts that
 header for secure-cookie/redirect decisions.
+
+To check the WebSocket upgrade and message delivery through TLS, use a visible,
+public contest and run the [feed smoke test](../../tests/smoke_websocket.py)
+from a client with `websockets` installed:
+
+```bash
+CONTEST_KEY=example
+python tests/smoke_websocket.py "wss://judgeloom.example.com/ws/contests/$CONTEST_KEY/"
+```
 
 ---
 
