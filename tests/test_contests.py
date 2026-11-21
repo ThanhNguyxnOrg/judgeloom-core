@@ -27,7 +27,9 @@ if TYPE_CHECKING:
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_public_contest_feed_receives_its_own_lifecycle_events(contest: Contest) -> None:
+async def test_public_contest_feed_receives_its_own_lifecycle_events(
+    contest: Contest, finished_contest: Contest
+) -> None:
     feed = WebsocketCommunicator(
         application,
         f"/ws/contests/{contest.key}/",
@@ -36,8 +38,7 @@ async def test_public_contest_feed_receives_its_own_lifecycle_events(contest: Co
     connected, _ = await feed.connect()
     assert connected
     try:
-        other = await database_sync_to_async(ContestFactory)()
-        await database_sync_to_async(ContestLifecycleService.start_contest)(other.pk)
+        await database_sync_to_async(ContestLifecycleService.end_contest)(finished_contest.pk)
         for publish, event_type in (
             (ContestLifecycleService.start_contest, CONTEST_STARTED),
             (ContestLifecycleService.recalculate_rankings, CONTEST_RANKING_UPDATED),

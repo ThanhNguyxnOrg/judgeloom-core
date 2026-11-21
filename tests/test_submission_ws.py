@@ -11,6 +11,7 @@ from channels.testing import WebsocketCommunicator
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 
+from apps.accounts.models import User
 from apps.judge.services.judge_gateway_service import JudgeGatewayService
 from apps.judge.services.judge_result_service import JudgeResultService
 from apps.problems.services.package_service import PackageImportService
@@ -18,7 +19,6 @@ from apps.submissions.constants import SubmissionResult
 from apps.submissions.consumers import SubmissionConsumer
 from apps.submissions.services import SubmissionService
 from config.asgi import application
-from tests.factories import UserFactory
 
 if TYPE_CHECKING:
     from django.test import Client
@@ -92,7 +92,7 @@ async def test_submission_consumer_receives_case_update(user, problem, language,
 @pytest.mark.django_db(transaction=True)
 async def test_public_submission_feed_still_requires_private_access(submission: Submission, client: Client) -> None:
     await database_sync_to_async(SubmissionService.set_submission_public)(submission, True)
-    await client.aforce_login(await database_sync_to_async(UserFactory)())
+    await client.aforce_login(await User.objects.acreate(username="public-reader"))
     session_cookie = client.cookies[settings.SESSION_COOKIE_NAME].OutputString(attrs=[])
     communicator = WebsocketCommunicator(
         application,
