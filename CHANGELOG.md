@@ -35,3 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - constrain python-dateutil to Celery-compatible 2.x ([44e8bc8](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/44e8bc81dd239e717aa81d9cb7efc86814d3ba3b))
 - use Django 6.1-compatible celery-beat source revision ([d4fb46a](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/d4fb46abf137eeceabbae342a6cf85a7f07a104e))
 
+## [0.1.2] - 2026-11-21
+
+### Bug Fixes and Performance
+
+- probe the worker, scheduler, and Flower independently (#82) ([e4d3067](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/e4d30679748e5c91d39fd495ab87645fc4bece36))
+- serve WebSocket feeds through the production TLS proxy (#83) ([b2f6f27](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/b2f6f27d3d62b7f1b7d459ab9097fcd6cd4bc499))
+
