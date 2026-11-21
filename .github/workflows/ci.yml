@@ -99,7 +99,7 @@ jobs:
         run: python -m pytest tests/ -q
 
   go-test:
-    uses: ThanhNguyxnOrg/.github/.github/workflows/ci-go.yml@a032059a58ff65456dcb98a223bd636b96a3d018
+    uses: ThanhNguyxnOrg/.github/.github/workflows/ci-go.yml@ci-v1
     with:
       job_name: Go worker test • vet
       go_version: "1.27.x"
