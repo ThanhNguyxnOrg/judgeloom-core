@@ -69,6 +69,10 @@ class Contest(SluggedModel):
         ]
 
     @property
+    def websocket_group(self) -> str:
+        return f"contest_{self.pk}"
+
+    @property
     def is_active(self) -> bool:
         """Return whether the contest is currently active."""
 

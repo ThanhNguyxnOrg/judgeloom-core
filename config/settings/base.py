@@ -130,7 +130,8 @@ DATABASES = {
     "default": env.db("DATABASE_URL", default="postgres://judgeloom:judgeloom@localhost:5432/judgeloom"),
 }
 
-DATABASES["default"]["CONN_MAX_AGE"] = 600
+# ASGI requests use short-lived sync threads; don't retain a connection per thread.
+DATABASES["default"]["CONN_MAX_AGE"] = 0
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 

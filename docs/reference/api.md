@@ -131,9 +131,13 @@ includes source code or test output.
 
 ## 📡 WebSocket updates
 
-Live submission and contest feeds use Django Channels. Browser clients
-authenticate with the normal session/JWT flow; tokens are revalidated on
-revocation/ban. See the source consumers under `apps/*/consumers.py`.
+- `/ws/submissions/<submission_id>/` streams private case details to the owner, staff, or problem maintainers.
+  Public submission metadata does not grant access to this feed.
+- `/ws/contests/<contest_key>/` follows contest visibility; public contests allow anonymous readers.
+
+Connect over `wss://` in production. Channels reads the Django session cookie
+during the handshake and checks the browser's origin against `DJANGO_ALLOWED_HOSTS`.
+An HTTP bearer token alone does not authenticate the socket.
 
 ---
 
