@@ -42,3 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - probe the worker, scheduler, and Flower independently (#82) ([e4d3067](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/e4d30679748e5c91d39fd495ab87645fc4bece36))
 - serve WebSocket feeds through the production TLS proxy (#83) ([b2f6f27](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/b2f6f27d3d62b7f1b7d459ab9097fcd6cd4bc499))
 
+## [0.1.3] - 2026-11-23
+
+### Bug Fixes and Performance
+
+- read DJANGO_SECRET_KEY literally (#86) ([f707ed7](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/f707ed7f058125b4320c423195ace4a9d0123333))
+
+### Other changes
+
+- chore(deps)(deps-dev): update ruff requirement (#85) ([d70c91d](https://github.com/ThanhNguyxnOrg/judgeloom-core/commit/d70c91db5ad99a16bf10eb16f6f9c657599577c2))
+
