@@ -51,7 +51,12 @@ def _import_production_settings(secret: str) -> subprocess.CompletedProcess[str]
         }
     )
     return subprocess.run(
-        [sys.executable, "-c", "import config.settings.production"],
+        [
+            sys.executable,
+            "-c",
+            "import os; from config.settings.production import SECRET_KEY; "
+            "assert SECRET_KEY == os.environ['DJANGO_SECRET_KEY']",
+        ],
         cwd=ROOT,
         env=environment,
         capture_output=True,
@@ -69,4 +74,9 @@ def test_production_settings_rejects_placeholder_secret():
 
 def test_production_settings_accepts_generated_secret():
     result = _import_production_settings(get_random_secret_key())
+    assert result.returncode == 0, result.stderr
+
+
+def test_production_settings_preserves_secret_with_leading_dollar() -> None:
+    result = _import_production_settings("$" + "literal-secret-key-test-" * 3)
     assert result.returncode == 0, result.stderr

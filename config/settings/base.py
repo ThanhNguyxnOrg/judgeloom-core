@@ -11,10 +11,12 @@ secrets never live in source control.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import environ
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 
 # ─── Paths ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +36,10 @@ if _env_file.is_file():
 
 # ─── Core ───────────────────────────────────────────────────────────────────
 
-SECRET_KEY: str = env("DJANGO_SECRET_KEY")
+try:
+    SECRET_KEY: str = os.environ["DJANGO_SECRET_KEY"]
+except KeyError as exc:
+    raise ImproperlyConfigured("Set the DJANGO_SECRET_KEY environment variable") from exc
 
 DEBUG: bool = env("DJANGO_DEBUG")
 
